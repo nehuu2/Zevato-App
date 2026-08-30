@@ -1,0 +1,78 @@
+import { Category } from '../types/service';
+
+export const categories: Category[] = [
+  {
+    id: 'ac',
+    name: 'Air Conditioner',
+    icon: 'snow-outline',
+    iconFamily: 'Ionicons',
+    description: 'Split, Window, Inverter AC service & deep cleaning',
+    popular: true,
+    itemCount: 12,
+  },
+  {
+    id: 'refrigerator',
+    name: 'Refrigerator',
+    icon: 'cube-outline',
+    iconFamily: 'Ionicons',
+    description: 'Single, Double Door, Side-by-side cooling repair',
+    popular: true,
+    itemCount: 8,
+  },
+  {
+    id: 'washing-machine',
+    name: 'Washing Machine',
+    icon: 'shirt-outline',
+    iconFamily: 'Ionicons',
+    description: 'Front load, Top load, Semi-automatic repairs',
+    popular: true,
+    itemCount: 10,
+  },
+  {
+    id: 'microwave',
+    name: 'Microwave Oven',
+    icon: 'flame-outline',
+    iconFamily: 'Ionicons',
+    description: 'Solo, Grill, Convection heating issues',
+    popular: false,
+    itemCount: 6,
+  },
+  {
+    id: 'water-purifier',
+    name: 'Water Purifier',
+    icon: 'water-outline',
+    iconFamily: 'Ionicons',
+    description: 'RO, UV, Alkaline filter replacement & servicing',
+    popular: true,
+    itemCount: 9,
+  },
+  {
+    id: 'chimney',
+    name: 'Kitchen Chimney',
+    icon: 'funnel-outline',
+    iconFamily: 'Ionicons',
+    description: 'Deep degreasing, motor check & duct cleaning',
+    popular: false,
+    itemCount: 5,
+  },
+  {
+    id: 'television',
+    name: 'Smart TV / LED',
+    icon: 'tv-outline',
+    iconFamily: 'Ionicons',
+    description: 'Screen repair, motherboard, wall mounting',
+    popular: false,
+    itemCount: 7,
+  },
+  {
+    id: 'geyser',
+    name: 'Water Geyser',
+    icon: 'thermometer-outline',
+    iconFamily: 'Ionicons',
+    description: 'Instant, Storage, Solar geyser element repair',
+    popular: false,
+    itemCount: 4,
+  },
+];
+
+export default categories;

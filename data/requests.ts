@@ -1,0 +1,71 @@
+import { ServiceRequest } from '../types/request';
+
+export const mockRequests: ServiceRequest[] = [
+  {
+    id: 'REQ-3091',
+    ticketNumber: 'TKT-2026-3091',
+    category: 'Air Conditioner',
+    appliance: 'Daikin 1.5T Inverter AC',
+    brand: 'Daikin',
+    issueDescription: 'Cooling is very low and water is dripping from the indoor unit vent.',
+    priority: 'high',
+    status: 'assigned',
+    createdAt: '2026-08-30T08:15:00Z',
+    updatedAt: '2026-08-30T10:00:00Z',
+    scheduledDate: '30 Aug 2026, 02:00 PM',
+    assignedTechnician: 'Rajesh Sharma',
+    estimatedCost: 499,
+    updates: [
+      {
+        id: 'u-1',
+        timestamp: '10:00 AM',
+        title: 'Technician Assigned',
+        description: 'Rajesh Sharma has been assigned to your service request.',
+      },
+      {
+        id: 'u-2',
+        timestamp: '08:30 AM',
+        title: 'Request Verified',
+        description: 'Our support team reviewed your issue and scheduled an appointment.',
+      },
+      {
+        id: 'u-3',
+        timestamp: '08:15 AM',
+        title: 'Request Created',
+        description: 'Your request for AC dripping water has been logged.',
+      },
+    ],
+  },
+  {
+    id: 'REQ-2944',
+    ticketNumber: 'TKT-2026-2944',
+    category: 'Water Purifier',
+    appliance: 'Kent Grand Plus RO',
+    brand: 'Kent',
+    issueDescription: 'TDS level is showing higher than 250 and taste is unusual.',
+    priority: 'medium',
+    status: 'resolved',
+    createdAt: '2026-08-25T14:30:00Z',
+    updatedAt: '2026-08-26T12:00:00Z',
+    scheduledDate: '26 Aug 2026',
+    assignedTechnician: 'Suresh Patil',
+    estimatedCost: 850,
+  },
+  {
+    id: 'REQ-2810',
+    ticketNumber: 'TKT-2026-2810',
+    category: 'Refrigerator',
+    appliance: 'LG 260L Frost Free',
+    brand: 'LG',
+    issueDescription: 'Freezer is working fine but bottom compartment is not cooling.',
+    priority: 'medium',
+    status: 'closed',
+    createdAt: '2026-08-20T11:00:00Z',
+    updatedAt: '2026-08-21T16:00:00Z',
+    scheduledDate: '21 Aug 2026',
+    assignedTechnician: 'Deepak Kumar',
+    estimatedCost: 350,
+  },
+];
+
+export default mockRequests;
