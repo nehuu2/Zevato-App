@@ -12,11 +12,11 @@ export interface BookingProgressProps {
 }
 
 const statusSteps = [
-  { key: 'confirmed', label: 'Booking Confirmed', desc: 'Request received & validated' },
+  { key: 'confirmed', label: 'Booking Confirmed', desc: 'Request received & scheduled' },
   { key: 'technician_assigned', label: 'Technician Assigned', desc: 'Expert allocated to your service' },
   { key: 'on_the_way', label: 'On The Way', desc: 'Technician is en route to your location' },
   { key: 'in_progress', label: 'Service In Progress', desc: 'Inspection & repair underway' },
-  { key: 'completed', label: 'Service Completed', desc: 'Tested & warranty activated' },
+  { key: 'completed', label: 'Service Completed', desc: 'Tested & 30-day warranty active' },
 ];
 
 export const BookingProgress: React.FC<BookingProgressProps> = ({ status, style }) => {
@@ -32,12 +32,30 @@ export const BookingProgress: React.FC<BookingProgressProps> = ({ status, style 
         return 3;
       case 'completed':
         return 4;
+      case 'cancelled':
+        return -1;
       default:
         return 0;
     }
   };
 
   const currentIndex = getStepIndex(status);
+
+  if (status === 'cancelled') {
+    return (
+      <View style={[styles.container, styles.cancelledContainer, style]}>
+        <View style={styles.cancelledHeader}>
+          <View style={styles.cancelledIconCircle}>
+            <Ionicons name="close" size={18} color={Colors.white} />
+          </View>
+          <View style={styles.cancelledTextContainer}>
+            <Text style={styles.cancelledTitle}>Booking Cancelled</Text>
+            <Text style={styles.cancelledDesc}>This appointment has been cancelled.</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, style]}>
@@ -101,6 +119,36 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  cancelledContainer: {
+    borderColor: Colors.danger,
+    backgroundColor: Colors.dangerLight,
+  },
+  cancelledHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  cancelledIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelledTextContainer: {
+    flex: 1,
+  },
+  cancelledTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.danger,
+  },
+  cancelledDesc: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   stepRow: {
     flexDirection: 'row',

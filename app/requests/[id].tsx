@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
@@ -9,22 +10,35 @@ import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
 import RequestStatus from '../../components/requests/RequestStatus';
 import { mockRequests } from '../../data/requests';
+import { bookingStore } from '../../store/bookingStore';
 import { formatDate } from '../../utils/formatDate';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+
+  // If this ID is a booking ID, forward to /bookings/[id]
+  const booking = bookingStore.getBookingById(id || '');
+  useEffect(() => {
+    if (booking) {
+      router.replace({
+        pathname: '/bookings/[id]',
+        params: { id: booking.id },
+      });
+    }
+  }, [booking, router]);
+
   const request = mockRequests.find((r) => r.id === id || r.ticketNumber === id) || mockRequests[0];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header
         title={request.ticketNumber}
         subtitle={request.appliance}
         showBack
         onBackPress={() => router.back()}
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Status Card */}
         <RequestStatus status={request.status} />
 
@@ -54,7 +68,7 @@ export default function RequestDetailScreen() {
         {request.updates && request.updates.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Status Updates</Text>
-            {request.updates.map((update, idx) => (
+            {request.updates.map((update) => (
               <View key={update.id} style={styles.updateRow}>
                 <View style={styles.dot} />
                 <View style={styles.updateInfo}>
@@ -80,10 +94,14 @@ export default function RequestDetailScreen() {
             <Button
               title="Cancel Request"
               variant="danger"
-              onPress={() => router.push('/requests/cancel')}
+              onPress={() => router.push({
+                pathname: '/requests/cancel',
+                params: { id: request.id },
+              })}
             />
           )}
         </View>
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -96,7 +114,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
-    paddingBottom: Spacing.xl,
   },
   card: {
     backgroundColor: Colors.white,

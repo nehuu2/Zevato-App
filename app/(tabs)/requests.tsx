@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,36 +8,56 @@ import Header from '../../components/common/Header';
 import EmptyState from '../../components/common/EmptyState';
 import RequestTabs, { RequestTabType, TabItem } from '../../components/requests/RequestTabs';
 import RequestCard from '../../components/requests/RequestCard';
-import { mockRequests } from '../../data/requests';
+import { bookingStore } from '../../store/bookingStore';
+import { Booking } from '../../types/booking';
 
 export default function RequestsTabScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<RequestTabType>('all');
+  const [bookings, setBookings] = useState<Booking[]>(() => bookingStore.getConfirmedBookings());
+
+  useEffect(() => {
+    const unsub = bookingStore.subscribeBookings((updatedList) => {
+      setBookings(updatedList);
+    });
+    return unsub;
+  }, []);
+
+  const activeCount = bookings.filter((b) =>
+    b.status === 'confirmed' ||
+    b.status === 'technician_assigned' ||
+    b.status === 'on_the_way' ||
+    b.status === 'in_progress'
+  ).length;
+
+  const completedCount = bookings.filter((b) => b.status === 'completed').length;
+  const cancelledCount = bookings.filter((b) => b.status === 'cancelled').length;
 
   const tabItems: TabItem[] = [
-    { id: 'all', label: 'All', count: mockRequests.length },
-    {
-      id: 'active',
-      label: 'Active',
-      count: mockRequests.filter((r) => r.status === 'assigned' || r.status === 'in_progress' || r.status === 'pending').length,
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      count: mockRequests.filter((r) => r.status === 'resolved' || r.status === 'closed').length,
-    },
+    { id: 'all', label: 'All', count: bookings.length },
+    { id: 'active', label: 'Active', count: activeCount },
+    { id: 'completed', label: 'Completed', count: completedCount },
+    { id: 'cancelled', label: 'Cancelled', count: cancelledCount },
   ];
 
-  const filtered = mockRequests.filter((r) => {
+  const filtered = bookings.filter((b) => {
     if (activeTab === 'all') return true;
-    if (activeTab === 'active') return r.status === 'assigned' || r.status === 'in_progress' || r.status === 'pending';
-    if (activeTab === 'completed') return r.status === 'resolved' || r.status === 'closed';
+    if (activeTab === 'active') {
+      return (
+        b.status === 'confirmed' ||
+        b.status === 'technician_assigned' ||
+        b.status === 'on_the_way' ||
+        b.status === 'in_progress'
+      );
+    }
+    if (activeTab === 'completed') return b.status === 'completed';
+    if (activeTab === 'cancelled') return b.status === 'cancelled';
     return true;
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="My Service Requests" />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <Header title="My Bookings & Requests" />
       <View style={styles.container}>
         <RequestTabs
           tabs={tabItems}
@@ -51,16 +71,19 @@ export default function RequestsTabScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <RequestCard
-              request={item}
-              onPress={() => router.push(`/requests/${item.id}`)}
+              booking={item}
+              onPress={() => router.push({
+                pathname: '/bookings/[id]',
+                params: { id: item.id },
+              })}
             />
           )}
           ListEmptyComponent={
             <EmptyState
-              icon="document-text-outline"
-              title="No Requests Found"
-              description="You have no service requests in this tab."
-              actionTitle="Book New Service"
+              icon="calendar-outline"
+              title="No Bookings Found"
+              description="You have no service bookings in this tab."
+              actionTitle="Book a Service"
               onActionPress={() => router.push('/(tabs)/services')}
             />
           }

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { BorderRadius, Spacing } from '../../constants/spacing';
+import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 
 export interface ServiceReportProps {
@@ -14,9 +14,9 @@ export interface ServiceReportProps {
 }
 
 export const ServiceReport: React.FC<ServiceReportProps> = ({
-  technicianNotes = 'Cleaned air filters, serviced indoor blower motor, checked compressor amp load (3.8A normal). Cooling restored.',
+  technicianNotes = 'Cleaned air filters, serviced indoor blower motor, checked compressor amp load (3.8A normal). Cooling fully restored.',
   partsReplaced = [],
-  warrantyUntil = '30 Sep 2026',
+  warrantyUntil = '30 Days Warranty Active',
   ratingGiven,
   style,
 }) => {
@@ -34,10 +34,10 @@ export const ServiceReport: React.FC<ServiceReportProps> = ({
 
       {partsReplaced && partsReplaced.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Parts Replaced:</Text>
+          <Text style={styles.sectionLabel}>Parts Serviced / Replaced:</Text>
           {partsReplaced.map((part, idx) => (
             <View key={idx} style={styles.partItem}>
-              <Ionicons name="hardware-chip-outline" size={14} color={Colors.textSecondary} />
+              <Ionicons name="hardware-chip-outline" size={14} color={Colors.primary} />
               <Text style={styles.partText}>{part}</Text>
             </View>
           ))}
@@ -47,14 +47,14 @@ export const ServiceReport: React.FC<ServiceReportProps> = ({
       <View style={styles.warrantyBox}>
         <Ionicons name="shield-checkmark" size={18} color={Colors.success} />
         <View style={styles.warrantyInfo}>
-          <Text style={styles.warrantyTitle}>Service Warranty Active</Text>
-          <Text style={styles.warrantySubtitle}>Covers revisit & labor till {warrantyUntil}</Text>
+          <Text style={styles.warrantyTitle}>Zevota Revisit Warranty Active</Text>
+          <Text style={styles.warrantySubtitle}>Covers free rework & diagnosis till {warrantyUntil}</Text>
         </View>
       </View>
 
       {ratingGiven ? (
         <View style={styles.ratingRow}>
-          <Text style={styles.ratingLabel}>Your Rating:</Text>
+          <Text style={styles.ratingLabel}>Customer Rating:</Text>
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((star) => (
               <Ionicons
@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     marginVertical: Spacing.sm,
+    ...Elevation.sm,
   },
   header: {
     flexDirection: 'row',

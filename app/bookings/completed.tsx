@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
@@ -8,33 +9,53 @@ import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
 import ServiceReport from '../../components/tracking/ServiceReport';
+import { bookingStore } from '../../store/bookingStore';
+import { mockBookings } from '../../data/bookings';
+import { Booking } from '../../types/booking';
 
 export default function BookingCompletedScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [rating, setRating] = useState(5);
 
+  const booking: Booking = bookingStore.getBookingById(id || '') || mockBookings[0];
+
+  const handleRating = (stars: number) => {
+    setRating(stars);
+    Alert.alert('Rating Submitted', `Thank you for rating ${booking.technician?.name || 'our technician'} ${stars} stars!`);
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Service Completed" showBack onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <Header
+        title="Service Completed"
+        subtitle={`Booking #${booking.id}`}
+        showBack
+        onBackPress={() => router.back()}
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Success Hero Badge */}
         <View style={styles.heroBox}>
           <View style={styles.successCircle}>
             <Ionicons name="checkmark-done" size={36} color={Colors.white} />
           </View>
           <Text style={styles.title}>Service Successfully Completed!</Text>
           <Text style={styles.subtitle}>
-            Your AC Power Jet Deep Cleaning has been completed with a 30-day warranty.
+            Your {booking.serviceName} has been completed and verified with our 30-day rework warranty.
           </Text>
         </View>
 
-        {/* Rating prompt */}
+        {/* Rating Prompt */}
         <View style={styles.rateCard}>
           <Text style={styles.rateTitle}>Rate Technician Performance</Text>
+          <Text style={styles.rateSubtitle}>
+            How was your experience with {booking.technician?.name || 'our technician'}?
+          </Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity
                 key={star}
-                onPress={() => setRating(star)}
+                onPress={() => handleRating(star)}
                 activeOpacity={0.7}
               >
                 <Ionicons
@@ -47,26 +68,30 @@ export default function BookingCompletedScreen() {
           </View>
         </View>
 
-        {/* Service Report Card */}
+        {/* Service Completion Report Card */}
         <ServiceReport
-          technicianNotes="Inspected indoor coil, deep jet foam cleaned filters & drainage tray. Amp load 3.8A steady. Guaranteed cooling restored."
-          partsReplaced={['Drain pipe seal rubber']}
-          warrantyUntil="30 Sep 2026"
+          technicianNotes={booking.serviceReport?.technicianNotes || `Inspected ${booking.categoryName} (${booking.brandName || 'System'}). Deep cleaned coils & filters, inspected electrical connections, verified normal operating current.`}
+          partsReplaced={booking.serviceReport?.partsReplaced || ['Drain Pipe Seal Ring']}
+          warrantyUntil="30 Days from today"
           ratingGiven={rating}
         />
 
         <View style={styles.actionButtons}>
           <Button
-            title="Download GST Invoice"
+            title="View Tax Invoice"
             variant="outline"
             leftIcon={<Ionicons name="receipt-outline" size={18} color={Colors.primary} />}
-            onPress={() => router.push('/bookings/invoice')}
+            onPress={() => router.push({
+              pathname: '/bookings/invoice',
+              params: { id: booking.id },
+            })}
           />
           <Button
             title="Back to Home"
             onPress={() => router.replace('/(tabs)/home')}
           />
         </View>
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -79,7 +104,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
-    paddingBottom: Spacing.xl,
   },
   heroBox: {
     alignItems: 'center',
@@ -112,7 +136,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
-    maxWidth: 280,
+    maxWidth: 290,
   },
   rateCard: {
     backgroundColor: Colors.white,
@@ -122,12 +146,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     marginBottom: Spacing.md,
+    ...Elevation.sm,
   },
   rateTitle: {
     fontSize: Typography.fontSize.sm,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: Spacing.sm,
+    marginBottom: 2,
+  },
+  rateSubtitle: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
   },
   starsRow: {
     flexDirection: 'row',

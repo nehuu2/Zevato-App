@@ -1,6 +1,6 @@
 import { Category, Brand, Product, ServiceOption } from '../types/service';
 import { Address } from '../types/user';
-import { Booking, BookingDraft } from '../types/booking';
+import { Booking, BookingDraft, BookingStatus, ServiceReportData } from '../types/booking';
 import { mockBookings } from '../data/bookings';
 
 export { BookingDraft };
@@ -22,58 +22,72 @@ let currentBookingDraft: BookingDraft = { ...initialDraft };
 let confirmedBookings: Booking[] = [...mockBookings];
 let lastConfirmedBooking: Booking | null = null;
 
-const listeners = new Set<(draft: BookingDraft) => void>();
+const draftListeners = new Set<(draft: BookingDraft) => void>();
+const bookingListListeners = new Set<(bookings: Booking[]) => void>();
 
-function notify() {
-  listeners.forEach((listener) => listener({ ...currentBookingDraft }));
+function notifyDraft() {
+  draftListeners.forEach((listener) => listener({ ...currentBookingDraft }));
+}
+
+function notifyBookings() {
+  bookingListListeners.forEach((listener) => listener([...confirmedBookings]));
 }
 
 export const bookingStore = {
   getState: (): BookingDraft => ({ ...currentBookingDraft }),
 
   subscribe: (listener: (state: BookingDraft) => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
+    draftListeners.add(listener);
+    return () => {
+      draftListeners.delete(listener);
+    };
+  },
+
+  subscribeBookings: (listener: (bookings: Booking[]) => void) => {
+    bookingListListeners.add(listener);
+    return () => {
+      bookingListListeners.delete(listener);
+    };
   },
 
   setCategory: (category: Category | null) => {
     currentBookingDraft = { ...currentBookingDraft, category };
-    notify();
+    notifyDraft();
   },
 
   setBrand: (brand: Brand | null) => {
     currentBookingDraft = { ...currentBookingDraft, brand };
-    notify();
+    notifyDraft();
   },
 
   setProduct: (product: Product | null) => {
     currentBookingDraft = { ...currentBookingDraft, product };
-    notify();
+    notifyDraft();
   },
 
   setService: (service: ServiceOption | null) => {
     currentBookingDraft = { ...currentBookingDraft, service };
-    notify();
+    notifyDraft();
   },
 
   setSchedule: (date: string, timeSlot: string) => {
     currentBookingDraft = { ...currentBookingDraft, date, timeSlot };
-    notify();
+    notifyDraft();
   },
 
   setAddress: (address: Address | null) => {
     currentBookingDraft = { ...currentBookingDraft, address };
-    notify();
+    notifyDraft();
   },
 
   setPaymentMethod: (paymentMethod: string) => {
     currentBookingDraft = { ...currentBookingDraft, paymentMethod };
-    notify();
+    notifyDraft();
   },
 
   setNotes: (notes: string) => {
     currentBookingDraft = { ...currentBookingDraft, notes };
-    notify();
+    notifyDraft();
   },
 
   confirmBooking: (): Booking => {
@@ -121,20 +135,82 @@ export const bookingStore = {
       status: 'confirmed',
       createdAt: new Date().toISOString(),
       technician: {
-        id: 'tech-assigning',
-        name: 'Technician Assigning...',
-        phone: '+91 98765 00000',
+        id: 'tech-101',
+        name: 'Rajesh Sharma',
+        phone: '+91 98765 12345',
         rating: 4.9,
-        completedJobs: 350,
-        experienceYears: 5,
+        completedJobs: 420,
+        experienceYears: 6,
+        specialization: 'Appliance Specialist',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
       },
       notes: draft.notes,
     };
 
     confirmedBookings = [newBooking, ...confirmedBookings];
     lastConfirmedBooking = newBooking;
+    notifyBookings();
 
     return newBooking;
+  },
+
+  updateBookingStatus: (id: string, status: BookingStatus): Booking | undefined => {
+    const index = confirmedBookings.findIndex((b) => b.id === id || b.id.toLowerCase() === id.toLowerCase());
+    if (index !== -1) {
+      const updated: Booking = {
+        ...confirmedBookings[index],
+        status,
+      };
+
+      if (status === 'completed' && !updated.serviceReport) {
+        updated.serviceReport = {
+          technicianNotes: 'Diagnostic checkup completed. System cleaned, tested, and full performance verified.',
+          partsReplaced: [],
+          warrantyUntil: '30 Days from today',
+          ratingGiven: 5,
+        };
+      }
+
+      confirmedBookings[index] = updated;
+      if (lastConfirmedBooking?.id === id) {
+        lastConfirmedBooking = updated;
+      }
+      notifyBookings();
+      return updated;
+    }
+    return undefined;
+  },
+
+  cancelBooking: (id: string, reason?: string): Booking | undefined => {
+    const index = confirmedBookings.findIndex((b) => b.id === id || b.id.toLowerCase() === id.toLowerCase());
+    if (index !== -1) {
+      const updated: Booking = {
+        ...confirmedBookings[index],
+        status: 'cancelled',
+        cancellationReason: reason || 'Cancelled by customer',
+      };
+      confirmedBookings[index] = updated;
+      if (lastConfirmedBooking?.id === id) {
+        lastConfirmedBooking = updated;
+      }
+      notifyBookings();
+      return updated;
+    }
+    return undefined;
+  },
+
+  addServiceReport: (id: string, report: ServiceReportData): Booking | undefined => {
+    const index = confirmedBookings.findIndex((b) => b.id === id || b.id.toLowerCase() === id.toLowerCase());
+    if (index !== -1) {
+      const updated: Booking = {
+        ...confirmedBookings[index],
+        serviceReport: report,
+      };
+      confirmedBookings[index] = updated;
+      notifyBookings();
+      return updated;
+    }
+    return undefined;
   },
 
   getLastConfirmedBooking: (): Booking | null => {
@@ -151,7 +227,7 @@ export const bookingStore = {
 
   resetBooking: () => {
     currentBookingDraft = { ...initialDraft };
-    notify();
+    notifyDraft();
   },
 };
 

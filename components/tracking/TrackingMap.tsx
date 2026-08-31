@@ -8,18 +8,21 @@ import Typography from '../../constants/typography';
 export interface TrackingMapProps {
   estimatedTime?: string;
   technicianName?: string;
+  customerAddress?: string;
   style?: ViewStyle;
 }
 
 export const TrackingMap: React.FC<TrackingMapProps> = ({
   estimatedTime = '12 mins away',
   technicianName = 'Technician',
+  customerAddress = 'Sector 48, Gurugram',
   style,
 }) => {
   return (
     <View style={[styles.container, style]}>
       {/* Mock Map Background Visual */}
       <View style={styles.mapGrid}>
+        {/* Horizontal Road Blocks */}
         <View style={styles.gridLineHorizontal} />
         <View style={styles.gridLineHorizontal2} />
         <View style={styles.gridLineVertical} />
@@ -34,12 +37,18 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
             <Ionicons name="bicycle" size={16} color={Colors.white} />
           </View>
           <View style={styles.pinArrow} />
+          <View style={styles.pinLabel}>
+            <Text style={styles.pinLabelText} numberOfLines={1}>{technicianName}</Text>
+          </View>
         </View>
 
         {/* Customer Location Pin */}
         <View style={styles.homePin}>
           <View style={styles.homeBubble}>
             <Ionicons name="home" size={16} color={Colors.white} />
+          </View>
+          <View style={styles.homeLabel}>
+            <Text style={styles.homeLabelText} numberOfLines={1}>Your Location</Text>
           </View>
         </View>
       </View>
@@ -51,7 +60,7 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
         </View>
         <View style={styles.etaTextContainer}>
           <Text style={styles.etaTitle}>{technicianName} is en route</Text>
-          <Text style={styles.etaSubtitle}>Estimated arrival in {estimatedTime}</Text>
+          <Text style={styles.etaSubtitle}>Estimated arrival in {estimatedTime} • {customerAddress}</Text>
         </View>
       </View>
     </View>
@@ -60,7 +69,7 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: 220,
+    height: 230,
     backgroundColor: '#E5EBF5',
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
@@ -76,18 +85,18 @@ const styles = StyleSheet.create({
   },
   gridLineHorizontal: {
     position: 'absolute',
-    top: 60,
+    top: 50,
     left: 0,
     right: 0,
-    height: 12,
+    height: 14,
     backgroundColor: '#DDE6F2',
   },
   gridLineHorizontal2: {
     position: 'absolute',
-    top: 140,
+    top: 130,
     left: 0,
     right: 0,
-    height: 8,
+    height: 10,
     backgroundColor: '#DDE6F2',
   },
   gridLineVertical: {
@@ -95,12 +104,12 @@ const styles = StyleSheet.create({
     left: 80,
     top: 0,
     bottom: 0,
-    width: 10,
+    width: 12,
     backgroundColor: '#DDE6F2',
   },
   gridLineVertical2: {
     position: 'absolute',
-    right: 90,
+    right: 80,
     top: 0,
     bottom: 0,
     width: 14,
@@ -108,10 +117,10 @@ const styles = StyleSheet.create({
   },
   routePath: {
     position: 'absolute',
-    top: 80,
-    left: 90,
-    width: 150,
-    height: 50,
+    top: 70,
+    left: 86,
+    width: 160,
+    height: 60,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
     borderColor: Colors.primary,
@@ -120,8 +129,8 @@ const styles = StyleSheet.create({
   },
   technicianPin: {
     position: 'absolute',
-    top: 65,
-    left: 70,
+    top: 50,
+    left: 68,
     alignItems: 'center',
   },
   pinBubble: {
@@ -145,10 +154,23 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: Colors.primary,
   },
+  pinLabel: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.xs,
+    marginTop: 2,
+    ...Elevation.sm,
+  },
+  pinLabelText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.text,
+  },
   homePin: {
     position: 'absolute',
-    top: 115,
-    right: 75,
+    top: 110,
+    right: 68,
     alignItems: 'center',
   },
   homeBubble: {
@@ -160,11 +182,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Elevation.md,
   },
+  homeLabel: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.xs,
+    marginTop: 2,
+    ...Elevation.sm,
+  },
+  homeLabelText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Colors.success,
+  },
   etaCard: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    right: 12,
+    bottom: 10,
+    left: 10,
+    right: 10,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,

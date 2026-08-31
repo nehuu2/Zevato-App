@@ -18,10 +18,18 @@ export interface Technician {
   completedJobs: number;
   avatar?: string;
   experienceYears: number;
+  specialization?: string;
   currentLocation?: {
     latitude: number;
     longitude: number;
   };
+}
+
+export interface ServiceReportData {
+  technicianNotes: string;
+  partsReplaced?: string[];
+  warrantyUntil: string;
+  ratingGiven?: number;
 }
 
 export interface Booking {
@@ -43,7 +51,9 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   technician?: Technician;
+  serviceReport?: ServiceReportData;
   notes?: string;
+  cancellationReason?: string;
   invoiceUrl?: string;
 }
 

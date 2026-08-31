@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Technician } from '../../types/booking';
 import Colors from '../../constants/colors';
@@ -19,6 +19,22 @@ export const TechnicianCard: React.FC<TechnicianCardProps> = ({
   onChatPress,
   style,
 }) => {
+  const handleDefaultCall = () => {
+    Alert.alert(
+      'Calling Technician',
+      `Connecting call to ${technician.name} (${technician.phone})...`,
+      [{ text: 'End Call' }]
+    );
+  };
+
+  const handleDefaultChat = () => {
+    Alert.alert(
+      'Zevato In-App Chat',
+      `Chat session opened with ${technician.name}. Technician typically replies within 2 minutes.`,
+      [{ text: 'OK' }]
+    );
+  };
+
   return (
     <View style={[styles.card, style]}>
       <View style={styles.topRow}>
@@ -32,10 +48,10 @@ export const TechnicianCard: React.FC<TechnicianCardProps> = ({
               <Ionicons name="star" size={12} color="#D97706" />
               <Text style={styles.ratingText}>{technician.rating}</Text>
             </View>
-            <Text style={styles.jobsText}>• {technician.completedJobs}+ jobs done</Text>
+            <Text style={styles.jobsText}>• {technician.completedJobs}+ jobs completed</Text>
           </View>
           <Text style={styles.expText}>
-            {technician.experienceYears} Years Certified Experience
+            {technician.experienceYears} Years Experience • {technician.specialization || 'Certified Pro'}
           </Text>
         </View>
       </View>
@@ -43,7 +59,7 @@ export const TechnicianCard: React.FC<TechnicianCardProps> = ({
       <View style={styles.actionsRow}>
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={onCallPress}
+          onPress={onCallPress || handleDefaultCall}
           style={[styles.actionBtn, styles.callBtn]}
         >
           <Ionicons name="call" size={18} color={Colors.white} />
@@ -52,11 +68,11 @@ export const TechnicianCard: React.FC<TechnicianCardProps> = ({
 
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={onChatPress}
+          onPress={onChatPress || handleDefaultChat}
           style={[styles.actionBtn, styles.chatBtn]}
         >
           <Ionicons name="chatbubble-ellipses" size={18} color={Colors.primary} />
-          <Text style={styles.chatBtnText}>Chat</Text>
+          <Text style={styles.chatBtnText}>In-App Chat</Text>
         </TouchableOpacity>
       </View>
     </View>

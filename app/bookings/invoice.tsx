@@ -1,34 +1,60 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
+import { bookingStore } from '../../store/bookingStore';
+import { mockBookings } from '../../data/bookings';
+import { formatCurrency } from '../../utils/formatCurrency';
+import { Booking } from '../../types/booking';
 
 export default function InvoiceScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const booking: Booking = bookingStore.getBookingById(id || '') || mockBookings[0];
+
+  const totalAmount = booking.totalAmount || 499;
+  const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
+  const totalTax = Math.round((totalAmount - taxableAmount) * 100) / 100;
+  const cgst = Math.round((totalTax / 2) * 100) / 100;
+  const sgst = Math.round((totalTax / 2) * 100) / 100;
 
   const handleDownload = () => {
-    Alert.alert('Invoice Downloaded', 'Tax invoice PDF saved to device downloads.');
+    Alert.alert(
+      'Invoice Downloaded',
+      `Tax Invoice #${booking.id} has been saved to your local downloads folder.`,
+      [{ text: 'OK' }]
+    );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <Header title="Tax Invoice" showBack onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Invoice Paper Simulation */}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <Header
+        title="Tax Invoice"
+        subtitle={`Invoice for #${booking.id}`}
+        showBack
+        onBackPress={() => router.back()}
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Invoice Paper Card */}
         <View style={styles.invoicePaper}>
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.companyName}>ZEVOTA CARE</Text>
+              <Text style={styles.companyName}>ZEVOTA CARE INDIA</Text>
               <Text style={styles.gstText}>GSTIN: 07AAECZ9821M1Z5</Text>
+              <Text style={styles.hsnText}>SAC Code: 998719 (Maintenance & Repair)</Text>
             </View>
             <View style={styles.invoiceMeta}>
-              <Text style={styles.invoiceNumber}>INV-2026-89021</Text>
-              <Text style={styles.invoiceDate}>Date: 30 Aug 2026</Text>
+              <Text style={styles.invoiceNumber}>INV-{booking.id.replace('BK-', '').replace('ZEV-', '')}</Text>
+              <Text style={styles.invoiceDate}>
+                Date: {new Date(booking.createdAt).toLocaleDateString()}
+              </Text>
             </View>
           </View>
 
@@ -37,7 +63,9 @@ export default function InvoiceScreen() {
           <View style={styles.billToSection}>
             <Text style={styles.sectionLabel}>Billed To:</Text>
             <Text style={styles.customerName}>Alex Johnson</Text>
-            <Text style={styles.addressText}>Flat 402, Lotus Orchid Heights, Sector 48, Gurugram</Text>
+            <Text style={styles.addressText}>
+              {booking.address?.street}, {booking.address?.city}, {booking.address?.state} - {booking.address?.pincode}
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -45,49 +73,62 @@ export default function InvoiceScreen() {
           {/* Line Items */}
           <Text style={styles.sectionLabel}>Service Items:</Text>
           <View style={styles.itemRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemName}>Power Jet AC Deep Cleaning</Text>
-              <Text style={styles.itemDesc}>Split AC • Daikin 1.5 Ton</Text>
+            <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+              <Text style={styles.itemName}>{booking.selectedOption.title}</Text>
+              <Text style={styles.itemDesc}>
+                {booking.categoryName} {booking.brandName ? `• ${booking.brandName}` : ''}
+              </Text>
             </View>
-            <Text style={styles.itemPrice}>₹499.00</Text>
+            <Text style={styles.itemPrice}>{formatCurrency(totalAmount)}</Text>
           </View>
 
           <View style={styles.itemRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemName}>Care Plus Membership Discount</Text>
-              <Text style={styles.itemDesc}>Free Inspection & Visit</Text>
+            <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+              <Text style={styles.itemName}>Care Plus Visiting & Inspection Fee</Text>
+              <Text style={styles.itemDesc}>Waived for Zevota Member</Text>
             </View>
-            <Text style={[styles.itemPrice, styles.discountText]}>-₹99.00</Text>
+            <Text style={[styles.itemPrice, styles.discountText]}>FREE</Text>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Totals */}
+          {/* Tax Breakdown */}
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>Taxable Amount</Text>
-            <Text style={styles.calcVal}>₹422.88</Text>
+            <Text style={styles.calcLabel}>Taxable Value</Text>
+            <Text style={styles.calcVal}>₹{taxableAmount.toFixed(2)}</Text>
           </View>
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>CGST (9%)</Text>
-            <Text style={styles.calcVal}>₹38.06</Text>
+            <Text style={styles.calcLabel}>CGST (9.0%)</Text>
+            <Text style={styles.calcVal}>₹{cgst.toFixed(2)}</Text>
           </View>
           <View style={styles.calcRow}>
-            <Text style={styles.calcLabel}>SGST (9%)</Text>
-            <Text style={styles.calcVal}>₹38.06</Text>
+            <Text style={styles.calcLabel}>SGST (9.0%)</Text>
+            <Text style={styles.calcVal}>₹{sgst.toFixed(2)}</Text>
           </View>
 
           <View style={[styles.calcRow, styles.totalCalcRow]}>
-            <Text style={styles.totalLabel}>Total Paid (UPI)</Text>
-            <Text style={styles.totalVal}>₹499.00</Text>
+            <View>
+              <Text style={styles.totalLabel}>Total Paid ({booking.paymentMethod})</Text>
+              <Text style={styles.inclusiveText}>Inclusive of all GST taxes</Text>
+            </View>
+            <Text style={styles.totalVal}>{formatCurrency(totalAmount)}</Text>
           </View>
         </View>
 
         <Button
-          title="Download PDF Copy"
+          title="Download PDF Invoice"
           leftIcon={<Ionicons name="download-outline" size={18} color={Colors.white} />}
           onPress={handleDownload}
           style={styles.downloadBtn}
         />
+
+        <Button
+          title="Back to Booking"
+          variant="ghost"
+          onPress={() => router.back()}
+          style={styles.backBtn}
+        />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -100,7 +141,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
-    paddingBottom: Spacing.xl,
   },
   invoicePaper: {
     backgroundColor: Colors.white,
@@ -109,14 +149,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     ...Elevation.sm,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   companyName: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.sm + 1,
     fontWeight: '800',
     color: Colors.primary,
   },
@@ -124,6 +164,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.textMuted,
     marginTop: 2,
+  },
+  hsnText: {
+    fontSize: 9,
+    color: Colors.textMuted,
+    marginTop: 1,
   },
   invoiceMeta: {
     alignItems: 'flex-end',
@@ -162,6 +207,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
     marginTop: 2,
+    lineHeight: 16,
   },
   itemRow: {
     flexDirection: 'row',
@@ -176,6 +222,7 @@ const styles = StyleSheet.create({
   itemDesc: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textMuted,
+    marginTop: 1,
   },
   itemPrice: {
     fontSize: Typography.fontSize.sm,
@@ -206,9 +253,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   totalLabel: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.sm,
     fontWeight: '800',
     color: Colors.text,
+  },
+  inclusiveText: {
+    fontSize: 10,
+    color: Colors.textMuted,
   },
   totalVal: {
     fontSize: Typography.fontSize.lg,
@@ -216,6 +267,10 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
   },
   downloadBtn: {
+    width: '100%',
+  },
+  backBtn: {
+    marginTop: Spacing.xs,
     width: '100%',
   },
 });
