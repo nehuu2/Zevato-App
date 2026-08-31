@@ -9,6 +9,7 @@ import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { categories } from '../../data/categories';
+import { serviceOptions } from '../../data/services';
 import { bookingStore } from '../../store/bookingStore';
 
 export default function RequestTabScreen() {
@@ -19,7 +20,15 @@ export default function RequestTabScreen() {
 
   const handleSubmit = () => {
     const cat = categories.find((c) => c.id === selectedCatId) || categories[0];
+    const catServices = serviceOptions[cat.id] || serviceOptions['ac'] || [];
+    const defaultService =
+      catServices.find((s) => s.id.includes('repair') || s.id.includes('checkup') || s.id.includes('service')) ||
+      catServices[0];
+
     bookingStore.setCategory(cat);
+    if (defaultService) {
+      bookingStore.setService(defaultService);
+    }
     bookingStore.setNotes(issue);
     router.push('/services/schedule');
   };

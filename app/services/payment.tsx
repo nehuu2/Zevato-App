@@ -29,11 +29,22 @@ export default function PaymentScreen() {
   const servicePrice = draft.service?.price || 399;
 
   const handleConfirmBooking = async () => {
-    // Validation
+    // Auto-fallback for service if booked via quick request
     if (!draft.service) {
-      setErrorMsg('Service selection is missing. Please select a service package.');
-      return;
+      const fallbackService = {
+        id: 'opt-std',
+        title: 'Standard Appliance Service',
+        description: 'Comprehensive inspection and diagnostic checkup',
+        duration: '45 - 60 mins',
+        price: 399,
+        features: ['Standard inspection', '30-day warranty'],
+        included: ['Diagnosis', 'Basic labor'],
+        excluded: ['Parts cost'],
+        warrantyDays: 30,
+      };
+      bookingStore.setService(fallbackService);
     }
+
     if (!draft.date || !draft.timeSlot) {
       setErrorMsg('Appointment date or time slot is missing.');
       return;
