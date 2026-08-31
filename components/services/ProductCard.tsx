@@ -37,17 +37,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         />
       </View>
       <View style={styles.textContainer}>
-        <Text style={[styles.name, selected && styles.nameSelected]}>
-          {product.name}
-        </Text>
-        <Text style={styles.description} numberOfLines={1}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.name, selected && styles.nameSelected]} numberOfLines={2}>
+            {product.name}
+          </Text>
+        </View>
+        {product.model ? (
+          <View style={styles.modelBadge}>
+            <Text style={styles.modelText}>Model: {product.model}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.description} numberOfLines={2}>
           {product.description}
         </Text>
       </View>
       <Ionicons
-        name={selected ? 'radio-button-on' : 'radio-button-off'}
+        name="chevron-forward"
         size={20}
-        color={selected ? Colors.primary : Colors.borderDark}
+        color={selected ? Colors.primary : Colors.textMuted}
       />
     </TouchableOpacity>
   );
@@ -60,7 +67,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     padding: Spacing.base,
     borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.sm + 2,
     borderWidth: 1.5,
     borderColor: Colors.border,
     ...Elevation.sm,
@@ -70,8 +77,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryGhost,
   },
   iconBox: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.surface,
     alignItems: 'center',
@@ -85,18 +92,37 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingRight: Spacing.sm,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   name: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.sm + 1,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: 2,
+    lineHeight: 18,
   },
   nameSelected: {
     color: Colors.primaryDark,
   },
+  modelBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+    marginVertical: 3,
+  },
+  modelText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
   description: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
+    lineHeight: 15,
   },
 });
 

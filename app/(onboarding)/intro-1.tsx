@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Button from '../../components/common/Button';
+import BackButton from '../../components/common/BackButton';
 
 export default function Intro1Screen() {
   const router = useRouter();
@@ -13,8 +15,9 @@ export default function Intro1Screen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Top Bar with Skip */}
+        {/* Top Bar with Back & Skip */}
         <View style={styles.topBar}>
+          <BackButton onPress={() => router.back()} />
           <View style={styles.stepIndicator}>
             <Text style={styles.stepText}>STEP 1 OF 3</Text>
           </View>

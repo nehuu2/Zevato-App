@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, SafeAreaView, FlatList } from 'react-native';
+import { View, StyleSheet, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import Header from '../../components/common/Header';
+import SectionHeader from '../../components/common/SectionHeader';
 import Input from '../../components/common/Input';
+import EmptyState from '../../components/common/EmptyState';
 import CategoryCard from '../../components/services/CategoryCard';
 import { categories } from '../../data/categories';
 import { Category } from '../../types/service';
@@ -21,19 +24,27 @@ export default function ServicesTabScreen() {
 
   const handleSelectCategory = (category: Category) => {
     bookingStore.setCategory(category);
-    router.push('/services/brands');
+    router.push({
+      pathname: '/services/categories',
+      params: { categoryId: category.id },
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Header title="All Appliance Services" />
+      <Header title="Appliance Services" />
       <View style={styles.container}>
         <Input
-          placeholder="Search AC, Washing Machine, Geyser..."
+          placeholder="Search AC, Refrigerator, Chimney..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           leftIcon="search-outline"
           containerStyle={styles.searchBox}
+        />
+
+        <SectionHeader
+          title="All Service Categories"
+          subtitle="Select an appliance type to begin diagnosis & repair"
         />
 
         <FlatList
@@ -46,6 +57,15 @@ export default function ServicesTabScreen() {
               onPress={() => handleSelectCategory(item)}
             />
           )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="search-outline"
+              title="No categories found"
+              description={`No appliance services matched "${searchQuery}". Please check your search term.`}
+              actionTitle="Clear Search"
+              onActionPress={() => setSearchQuery('')}
+            />
+          }
           contentContainerStyle={styles.listContent}
         />
       </View>
@@ -64,7 +84,7 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   listContent: {
     paddingBottom: Spacing.xl,

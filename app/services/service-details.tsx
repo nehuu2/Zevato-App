@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
@@ -9,21 +10,42 @@ import Button from '../../components/common/Button';
 import ServiceOption from '../../components/services/ServiceOption';
 import ServiceFeature from '../../components/services/ServiceFeature';
 import { serviceOptions, serviceFeatures } from '../../data/services';
+import { categories } from '../../data/categories';
+import { products } from '../../data/products';
 import { ServiceOption as ServiceOptionType } from '../../types/service';
 import { bookingStore } from '../../store/bookingStore';
 
 export default function ServiceDetailsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    categoryId?: string;
+    productId?: string;
+    brandId?: string;
+  }>();
+
   const draft = bookingStore.getState();
-  const categoryKey = draft.category?.id || 'ac';
-  const availableOptions = serviceOptions[categoryKey] || serviceOptions['ac'];
+  const categoryId = params.categoryId || draft.category?.id || 'ac';
+  const categoryObj = categories.find((c) => c.id === categoryId) || draft.category;
+  const productObj = products.find((p) => p.id === params.productId) || draft.product;
+
+  const availableOptions = serviceOptions[categoryId] || serviceOptions['ac'] || [];
 
   const [selectedOption, setSelectedOption] = useState<ServiceOptionType>(
-    draft.service || availableOptions[0]
+    draft.service && availableOptions.some((o) => o.id === draft.service?.id)
+      ? draft.service
+      : availableOptions[0]
   );
 
+  useEffect(() => {
+    if (availableOptions.length > 0 && (!selectedOption || !availableOptions.some((o) => o.id === selectedOption.id))) {
+      setSelectedOption(availableOptions[0]);
+    }
+  }, [categoryId, availableOptions]);
+
   const handleProceed = () => {
-    bookingStore.setService(selectedOption);
+    if (selectedOption) {
+      bookingStore.setService(selectedOption);
+    }
     router.push('/services/schedule');
   };
 
@@ -31,42 +53,55 @@ export default function ServiceDetailsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <Header
         title="Select Service Package"
-        subtitle={draft.category?.name || 'Air Conditioner'}
+        subtitle={productObj?.name || categoryObj?.name || 'Appliance Service'}
         showBack
         onBackPress={() => router.back()}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionHeader}>Available Packages</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Service Options List */}
+        <Text style={styles.sectionHeader}>Available Packages & Repairs</Text>
+        <Text style={styles.sectionSubtitle}>
+          Choose the service package that fits your appliance requirements:
+        </Text>
+
         {availableOptions.map((opt) => (
           <ServiceOption
             key={opt.id}
             option={opt}
-            selected={selectedOption.id === opt.id}
+            selected={selectedOption?.id === opt.id}
             onSelect={(selected) => setSelectedOption(selected)}
           />
         ))}
 
+        {/* Zevota Care Guarantee */}
         <Text style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
           The Zevota Care Guarantee
         </Text>
+        <Text style={styles.sectionSubtitle}>
+          Every booking includes our standardized service assurances:
+        </Text>
+
         {serviceFeatures.map((feat) => (
           <ServiceFeature key={feat.id} feature={feat} />
         ))}
       </ScrollView>
 
-      {/* Floating Bottom Bar */}
-      <View style={styles.bottomBar}>
-        <View style={styles.priceInfo}>
-          <Text style={styles.totalLabel}>Selected Package</Text>
-          <Text style={styles.totalPrice}>₹{selectedOption.price}</Text>
+      {/* Floating Sticky Bottom Bar */}
+      {selectedOption ? (
+        <View style={styles.bottomBar}>
+          <View style={styles.priceInfo}>
+            <Text style={styles.totalLabel}>Selected Package</Text>
+            <Text style={styles.totalPrice}>₹{selectedOption.price}</Text>
+            <Text style={styles.packageDuration}>{selectedOption.duration}</Text>
+          </View>
+          <Button
+            title="Continue to Schedule"
+            size="md"
+            onPress={handleProceed}
+            style={styles.continueBtn}
+          />
         </View>
-        <Button
-          title="Continue to Schedule"
-          size="md"
-          onPress={handleProceed}
-          style={styles.continueBtn}
-        />
-      </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -78,13 +113,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.base,
-    paddingBottom: 90,
+    paddingBottom: 110,
   },
   sectionHeader: {
     fontSize: Typography.fontSize.base,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: Spacing.sm,
+    marginBottom: 2,
+  },
+  sectionSubtitle: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 16,
   },
   bottomBar: {
     position: 'absolute',
@@ -112,6 +153,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xl,
     fontWeight: '800',
     color: Colors.text,
+  },
+  packageDuration: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 1,
   },
   continueBtn: {
     paddingHorizontal: Spacing.lg,

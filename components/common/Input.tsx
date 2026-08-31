@@ -36,6 +36,7 @@ export const Input: React.FC<InputProps> = ({
   isPassword,
   containerStyle,
   inputStyle,
+  multiline,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -47,6 +48,7 @@ export const Input: React.FC<InputProps> = ({
       <View
         style={[
           styles.container,
+          multiline && styles.multilineContainer,
           isFocused && styles.containerFocused,
           Boolean(error) && styles.containerError,
         ]}
@@ -56,7 +58,7 @@ export const Input: React.FC<InputProps> = ({
             name={leftIcon}
             size={20}
             color={isFocused ? Colors.primary : Colors.textMuted}
-            style={styles.leftIcon}
+            style={[styles.leftIcon, multiline && styles.multilineIcon]}
           />
         )}
         <TextInput
@@ -64,7 +66,12 @@ export const Input: React.FC<InputProps> = ({
           secureTextEntry={isPassword && !showPassword}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          style={[styles.input, inputStyle]}
+          multiline={multiline}
+          style={[
+            styles.input,
+            multiline && styles.multilineInput,
+            inputStyle,
+          ]}
           {...props}
         />
         {isPassword ? (
@@ -116,7 +123,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.base,
-    height: 52,
+    minHeight: 52,
+  },
+  multilineContainer: {
+    alignItems: 'flex-start',
+    paddingVertical: Spacing.sm + 2,
+    minHeight: 100,
   },
   containerFocused: {
     borderColor: Colors.primary,
@@ -131,8 +143,16 @@ const styles = StyleSheet.create({
     color: Colors.text,
     paddingVertical: 0,
   },
+  multilineInput: {
+    textAlignVertical: 'top',
+    paddingTop: 0,
+    minHeight: 80,
+  },
   leftIcon: {
     marginRight: Spacing.sm + 2,
+  },
+  multilineIcon: {
+    marginTop: 2,
   },
   rightIconButton: {
     padding: Spacing.xs,

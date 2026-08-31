@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/colors';
-import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
+import { BorderRadius, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
@@ -24,9 +25,12 @@ export default function RequestTabScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Book a Service" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.sectionTitle}>1. Select Appliance</Text>
         <ScrollView
           horizontal
@@ -76,8 +80,7 @@ export default function RequestTabScreen() {
           numberOfLines={4}
           value={issue}
           onChangeText={setIssue}
-          inputStyle={styles.textArea}
-          containerStyle={{ marginBottom: Spacing.lg }}
+          containerStyle={styles.inputContainer}
         />
 
         <Button
@@ -85,6 +88,7 @@ export default function RequestTabScreen() {
           onPress={handleSubmit}
           style={styles.submitBtn}
         />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -96,7 +100,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   scrollContent: {
-    padding: Spacing.base,
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xl,
   },
   sectionTitle: {
     fontSize: Typography.fontSize.base,
@@ -119,16 +125,16 @@ const styles = StyleSheet.create({
   urgencyRow: {
     flexDirection: 'column',
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   urgencyBtn: {
     width: '100%',
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+  inputContainer: {
+    marginTop: 2,
+    marginBottom: Spacing.lg,
   },
   submitBtn: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
 });
