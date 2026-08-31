@@ -18,10 +18,10 @@ export default function Intro3Screen() {
     try {
       setLoading(true);
       await authStore.setOnboardingCompleted(true);
-      router.replace('/(tabs)/home');
+      router.replace('/(auth)/login');
     } catch (e) {
       console.error('Error completing onboarding:', e);
-      router.replace('/(tabs)/home');
+      router.replace('/(auth)/login');
     } finally {
       setLoading(false);
     }

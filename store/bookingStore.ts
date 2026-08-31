@@ -109,10 +109,10 @@ export const bookingStore = {
     const fallbackAddress: Address = {
       id: 'addr-default',
       label: 'Home',
-      street: 'Sector 48, Sohna Road',
-      city: 'Gurugram',
-      state: 'Haryana',
-      pincode: '122001',
+      street: 'Customer Delivery Address',
+      city: '',
+      state: '',
+      pincode: '',
       isDefault: true,
     };
 

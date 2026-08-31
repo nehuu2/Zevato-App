@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Modal, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,29 +11,38 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import BookingStepper from '../../components/booking/BookingStepper';
 import AddressCard from '../../components/booking/AddressCard';
-import { userStore } from '../../store/userStore';
+import EmptyState from '../../components/common/EmptyState';
 import { bookingStore } from '../../store/bookingStore';
+import { useUserProfile } from '../../hooks/useUserProfile';
 import { Address } from '../../types/user';
 
 export default function AddressScreen() {
   const router = useRouter();
   const draft = bookingStore.getState();
-  const userAddresses = userStore.getState().addresses;
+  const { isLoaded, addresses, addAddress } = useUserProfile();
 
-  const [addresses, setAddresses] = useState<Address[]>(userAddresses);
   const [selectedAddressId, setSelectedAddressId] = useState<string>(
-    draft.address?.id || addresses[0]?.id || 'addr-1'
+    draft.address?.id || addresses[0]?.id || ''
   );
+
+  useEffect(() => {
+    if (addresses.length > 0 && !selectedAddressId) {
+      const def = addresses.find((a) => a.isDefault) || addresses[0];
+      setSelectedAddressId(def.id);
+      bookingStore.setAddress(def);
+    }
+  }, [addresses, selectedAddressId]);
 
   // New Address Form Modal State
   const [showAddModal, setShowAddModal] = useState(false);
-  const [label, setLabel] = useState('Home');
+  const [label, setLabel] = useState<'Home' | 'Work' | 'Other'>('Home');
   const [street, setStreet] = useState('');
   const [city, setCity] = useState('Gurugram');
   const [pincode, setPincode] = useState('122001');
   const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveNewAddress = () => {
+  const handleSaveNewAddress = async () => {
     if (!street.trim()) {
       setFormError('Please enter street address / building name.');
       return;
@@ -43,35 +52,55 @@ export default function AddressScreen() {
       return;
     }
 
-    const newAddr: Address = {
-      id: 'addr-' + Date.now(),
-      label: label as 'Home' | 'Work' | 'Other',
-      street: street.trim(),
-      city: city.trim(),
-      state: 'Haryana',
-      pincode: pincode.trim(),
-      isDefault: false,
-    };
+    try {
+      setSaving(true);
+      const newAddr: Address = {
+        id: 'addr-' + Date.now(),
+        label,
+        street: street.trim(),
+        city: city.trim() || 'Gurugram',
+        state: 'Haryana',
+        pincode: pincode.trim(),
+        isDefault: addresses.length === 0,
+      };
 
-    userStore.addAddress(newAddr);
-    setAddresses((prev) => [...prev, newAddr]);
-    setSelectedAddressId(newAddr.id);
-    bookingStore.setAddress(newAddr);
+      await addAddress(newAddr);
+      setSelectedAddressId(newAddr.id);
+      bookingStore.setAddress(newAddr);
 
-    // Reset form
-    setStreet('');
-    setFormError(null);
-    setShowAddModal(false);
+      // Reset form
+      setStreet('');
+      setFormError(null);
+      setShowAddModal(false);
+    } catch (err) {
+      console.warn('Error saving address:', err);
+      setFormError('Failed to save address. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleNext = () => {
     const selected = addresses.find((a) => a.id === selectedAddressId) || addresses[0];
     if (!selected) {
+      Alert.alert('Address Required', 'Please add or select a service delivery address.');
+      setShowAddModal(true);
       return;
     }
     bookingStore.setAddress(selected);
     router.push('/services/payment');
   };
+
+  if (!isLoaded) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <Header title="Service Address" showBack onBackPress={() => router.back()} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -96,23 +125,39 @@ export default function AddressScreen() {
           </TouchableOpacity>
         </View>
 
-        {addresses.map((addr) => (
-          <AddressCard
-            key={addr.id}
-            address={addr}
-            selected={addr.id === selectedAddressId}
-            onSelect={() => setSelectedAddressId(addr.id)}
+        {addresses.length === 0 ? (
+          <EmptyState
+            icon="location-outline"
+            title="No Saved Address"
+            description="Please add your address so our certified technician can reach your doorstep."
+            actionTitle="+ Add Service Address"
+            onActionPress={() => setShowAddModal(true)}
+            style={styles.emptyBox}
           />
-        ))}
+        ) : (
+          addresses.map((addr) => (
+            <AddressCard
+              key={addr.id}
+              address={addr}
+              selected={addr.id === selectedAddressId}
+              onSelect={() => {
+                setSelectedAddressId(addr.id);
+                bookingStore.setAddress(addr);
+              }}
+            />
+          ))
+        )}
 
-        <Button
-          title="+ Add Another Address"
-          variant="outline"
-          size="md"
-          leftIcon={<Ionicons name="location-outline" size={16} color={Colors.primary} />}
-          onPress={() => setShowAddModal(true)}
-          style={styles.addBtn}
-        />
+        {addresses.length > 0 && (
+          <Button
+            title="+ Add Another Address"
+            variant="outline"
+            size="md"
+            leftIcon={<Ionicons name="location-outline" size={16} color={Colors.primary} />}
+            onPress={() => setShowAddModal(true)}
+            style={styles.addBtn}
+          />
+        )}
 
         {/* Security badge */}
         <View style={styles.verifiedBadge}>
@@ -163,7 +208,7 @@ export default function AddressScreen() {
 
             <Input
               label="Flat / House / Street Address"
-              placeholder="e.g. Flat 302, Rosewood Tower, Sector 48"
+              placeholder="e.g. Flat 101, Block A, Sunshine Heights"
               value={street}
               onChangeText={setStreet}
             />
@@ -173,6 +218,7 @@ export default function AddressScreen() {
                 <Input
                   label="City"
                   value={city}
+                  placeholder="e.g. Gurugram"
                   onChangeText={setCity}
                 />
               </View>
@@ -192,6 +238,7 @@ export default function AddressScreen() {
 
             <Button
               title="Save & Select Address"
+              loading={saving}
               onPress={handleSaveNewAddress}
               style={styles.saveModalBtn}
             />
@@ -206,6 +253,11 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: Spacing.base,
@@ -232,6 +284,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
+  emptyBox: {
+    marginVertical: Spacing.md,
+  },
   addBtn: {
     marginVertical: Spacing.sm,
     borderColor: Colors.borderDark,
@@ -249,35 +304,29 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.sm,
   },
   verifiedText: {
-    flex: 1,
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
-    lineHeight: 16,
+    flex: 1,
   },
   submitBtn: {
     marginTop: Spacing.md,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: Colors.white,
     borderTopLeftRadius: BorderRadius.xxl,
     borderTopRightRadius: BorderRadius.xxl,
-    padding: Spacing.xl,
-    ...Elevation.lg,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
   modalTitle: {
@@ -286,12 +335,12 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   closeBtn: {
-    padding: Spacing.xs,
+    padding: 4,
   },
   modalLabel: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
-    color: Colors.text,
+    color: Colors.textSecondary,
     marginBottom: Spacing.xs,
   },
   tagRow: {
@@ -301,15 +350,15 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.borderDark,
+    borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
   tagPillSelected: {
+    backgroundColor: Colors.primaryLight,
     borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
   },
   tagText: {
     fontSize: Typography.fontSize.xs,
@@ -317,7 +366,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   tagTextSelected: {
-    color: Colors.white,
+    color: Colors.primary,
+    fontWeight: '700',
   },
   cityPincodeRow: {
     flexDirection: 'row',

@@ -1,22 +1,71 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useClerk } from '@clerk/expo';
+import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
-import { Spacing } from '../../constants/spacing';
+import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
+import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import ProfileHeader from '../../components/profile/ProfileHeader';
 import ProfileMenuItem from '../../components/profile/ProfileMenuItem';
 import AccountStats from '../../components/profile/AccountStats';
-import { userStore } from '../../store/userStore';
 import { authStore } from '../../store/authStore';
+import { bookingStore } from '../../store/bookingStore';
+import { useUserProfile } from '../../hooks/useUserProfile';
+import { Booking } from '../../types/booking';
 
 export default function ProfileTabScreen() {
   const router = useRouter();
-  const user = userStore.getState();
+  const { isLoaded, isSignedIn, profile, addresses, hasProtectionPlan } = useUserProfile();
+  const { signOut } = useClerk();
+
+  const [bookings, setBookings] = useState<Booking[]>(() => bookingStore.getConfirmedBookings());
+
+  useEffect(() => {
+    const unsub = bookingStore.subscribeBookings((updated) => {
+      setBookings(updated);
+    });
+    return unsub;
+  }, []);
+
+  const completedCount = bookings.filter((b) => b.status === 'completed').length;
+  const activeCount = bookings.filter(
+    (b) =>
+      b.status === 'confirmed' ||
+      b.status === 'technician_assigned' ||
+      b.status === 'on_the_way' ||
+      b.status === 'in_progress'
+  ).length;
+  const savings = completedCount * 350; // Dynamic savings computation based on completed visits
+
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out of your account?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (isSignedIn) {
+              await signOut();
+            }
+            await authStore.logout();
+          } catch (e) {
+            console.warn('Logout error:', e);
+          }
+          router.replace('/(auth)/login');
+        },
+      },
+    ]);
+  };
 
   const handleResetOnboarding = async () => {
     await authStore.resetOnboarding();
+    if (isSignedIn) {
+      await signOut();
+    }
     router.replace('/');
   };
 
@@ -27,15 +76,35 @@ export default function ProfileTabScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Guest Banner if not signed in with Clerk */}
+        {isLoaded && !isSignedIn ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => router.push('/(auth)/login')}
+            style={styles.guestBanner}
+          >
+            <View style={styles.guestBannerLeft}>
+              <View style={styles.guestIconCircle}>
+                <Ionicons name="person-add" size={20} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.guestBannerTitle}>Sign In with Google or Email</Text>
+                <Text style={styles.guestBannerSub}>Save addresses, sync orders & get warranty</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </TouchableOpacity>
+        ) : null}
+
         <ProfileHeader
-          user={user}
+          user={profile}
           onEditPress={() => router.push('/profile/personal-info')}
         />
 
         <AccountStats
-          completedBookings={14}
-          activeRequests={1}
-          savedAmount={2450}
+          completedBookings={completedCount}
+          activeRequests={activeCount}
+          savedAmount={savings}
         />
 
         <View style={styles.menuSection}>
@@ -49,7 +118,7 @@ export default function ProfileTabScreen() {
             icon="location-outline"
             title="Saved Addresses"
             subtitle="Home, office & other delivery spots"
-            badge="2 Saved"
+            badge={addresses.length > 0 ? `${addresses.length} Saved` : undefined}
             onPress={() => router.push('/profile/addresses')}
           />
           <ProfileMenuItem
@@ -62,7 +131,7 @@ export default function ProfileTabScreen() {
             icon="shield-checkmark-outline"
             title="Zevota Care Plus Protection"
             subtitle="Manage your home appliance plan"
-            badge="Active"
+            badge={hasProtectionPlan ? 'Active' : undefined}
             badgeColor={Colors.success}
             onPress={() => router.push('/profile/protection')}
           />
@@ -125,9 +194,9 @@ export default function ProfileTabScreen() {
           />
           <ProfileMenuItem
             icon="log-out-outline"
-            title="Log Out"
-            destructive
-            onPress={() => router.replace('/(auth)/login')}
+            title={isSignedIn ? 'Log Out' : 'Sign In'}
+            destructive={isSignedIn}
+            onPress={isSignedIn ? handleLogout : () => router.push('/(auth)/login')}
           />
         </View>
 
@@ -145,6 +214,42 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.sm,
+  },
+  guestBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.xs,
+    ...Elevation.sm,
+  },
+  guestBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  guestIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestBannerTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.primaryDark,
+  },
+  guestBannerSub: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 1,
   },
   menuSection: {
     backgroundColor: Colors.white,

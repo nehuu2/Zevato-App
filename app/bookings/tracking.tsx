@@ -65,7 +65,11 @@ export default function TrackingScreen() {
         {/* Real-time Map Simulation */}
         <TrackingMap
           technicianName={technician.name}
-          customerAddress={booking.address?.street || 'Sector 48, Gurugram'}
+          customerAddress={
+            booking.address?.street
+              ? [booking.address.street, booking.address.city].filter(Boolean).join(', ')
+              : 'Customer Location'
+          }
           estimatedTime={currentStatus === 'in_progress' ? 'Service in progress' : '8 mins away'}
         />
 

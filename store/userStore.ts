@@ -1,63 +1,18 @@
 import { UserProfile, Address, PaymentMethod } from '../types/user';
 
-const defaultAddresses: Address[] = [
-  {
-    id: 'addr-1',
-    label: 'Home',
-    street: 'Flat 402, Lotus Orchid Heights, Sector 48',
-    city: 'Gurugram',
-    state: 'Haryana',
-    pincode: '122001',
-    isDefault: true,
-  },
-  {
-    id: 'addr-2',
-    label: 'Work',
-    street: 'Tower B, Cyber City, DLF Phase 2',
-    city: 'Gurugram',
-    state: 'Haryana',
-    pincode: '122002',
-    isDefault: false,
-  },
-];
-
-const defaultPaymentMethods: PaymentMethod[] = [
-  {
-    id: 'pm-1',
-    type: 'upi',
-    title: 'Google Pay / PhonePe UPI',
-    subtitle: 'user@okaxis',
-    isDefault: true,
-  },
-  {
-    id: 'pm-2',
-    type: 'card',
-    title: 'HDFC Bank Credit Card',
-    subtitle: '•••• 4892 (Visa)',
-    isDefault: false,
-  },
-  {
-    id: 'pm-3',
-    type: 'cod',
-    title: 'Pay on Service (Cash/UPI)',
-    subtitle: 'Pay technician after job completion',
-    isDefault: false,
-  },
-];
-
-const defaultProfile: UserProfile = {
-  id: 'user-001',
-  name: 'Alex Johnson',
-  email: 'alex.johnson@example.com',
-  phone: '+91 98765 43210',
-  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-  addresses: defaultAddresses,
-  paymentMethods: defaultPaymentMethods,
-  hasProtectionPlan: true,
-  memberSince: 'March 2024',
+const emptyProfile: UserProfile = {
+  id: '',
+  name: '',
+  email: '',
+  phone: '',
+  avatarUrl: undefined,
+  addresses: [],
+  paymentMethods: [],
+  hasProtectionPlan: false,
+  memberSince: undefined,
 };
 
-let currentUserState: UserProfile = { ...defaultProfile };
+let currentUserState: UserProfile = { ...emptyProfile };
 const listeners = new Set<(state: UserProfile) => void>();
 
 function notify() {
@@ -69,7 +24,14 @@ export const userStore = {
 
   subscribe: (listener: (state: UserProfile) => void) => {
     listeners.add(listener);
-    return () => listeners.delete(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  setProfile: (profile: UserProfile) => {
+    currentUserState = { ...profile };
+    notify();
   },
 
   updateProfile: (updates: Partial<UserProfile>) => {
@@ -101,6 +63,11 @@ export const userStore = {
         isDefault: a.id === id,
       })),
     };
+    notify();
+  },
+
+  clear: () => {
+    currentUserState = { ...emptyProfile };
     notify();
   },
 };

@@ -17,8 +17,14 @@ import { mockRequests } from '../../data/requests';
 import { Category } from '../../types/service';
 import { bookingStore } from '../../store/bookingStore';
 
+import { useUserProfile } from '../../hooks/useUserProfile';
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { isLoaded, isSignedIn, firstName, fullName, displayAddress } = useUserProfile();
+  const displayName = isLoaded
+    ? firstName || fullName || (isSignedIn ? 'User' : 'Guest')
+    : '...';
 
   const handleSelectCategory = (category: Category) => {
     bookingStore.setCategory(category);
@@ -33,14 +39,18 @@ export default function HomeScreen() {
       {/* Top App Header */}
       <View style={styles.topBar}>
         <View style={styles.userGreeting}>
-          <Text style={styles.greetingText}>Hello, Alex 👋</Text>
-          <View style={styles.locationRow}>
+          <Text style={styles.greetingText}>Hello, {displayName} 👋</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => router.push('/profile/addresses')}
+            style={styles.locationRow}
+          >
             <Ionicons name="location" size={14} color={Colors.primary} />
             <Text style={styles.locationText} numberOfLines={1}>
-              Sector 48, Gurugram
+              {displayAddress}
             </Text>
             <Ionicons name="chevron-down" size={12} color={Colors.textSecondary} />
-          </View>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity

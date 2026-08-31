@@ -1,10 +1,21 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import Typography from '../../constants/typography';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 export default function TabLayout() {
+  const router = useRouter();
+  const { isLoaded, isSignedIn, profileCompleted } = useUserProfile();
+
+  // Route protection / layout guarding for profile completion
+  useEffect(() => {
+    if (isLoaded && isSignedIn && !profileCompleted) {
+      router.replace('/(auth)/complete-profile');
+    }
+  }, [isLoaded, isSignedIn, profileCompleted, router]);
+
   return (
     <Tabs
       screenOptions={{

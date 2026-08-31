@@ -90,7 +90,9 @@ export default function PaymentScreen() {
             <Ionicons name="location-outline" size={16} color={Colors.primary} />
             <Text style={styles.reviewLabel}>Address:</Text>
             <Text style={styles.reviewVal} numberOfLines={1}>
-              {draft.address?.street || 'Sector 48, Gurugram'}
+              {draft.address?.street
+                ? [draft.address.street, draft.address.city].filter(Boolean).join(', ')
+                : 'Service Address'}
             </Text>
           </View>
         </View>

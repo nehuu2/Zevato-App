@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Alert, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Share } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
@@ -7,10 +8,14 @@ import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 export default function ReferEarnScreen() {
   const router = useRouter();
-  const referralCode = 'ZEVOTA500';
+  const { firstName, id } = useUserProfile();
+  const referralCode = firstName
+    ? `${firstName.toUpperCase().slice(0, 5)}${id ? id.slice(-3).toUpperCase() : '500'}`
+    : 'ZEVOTA500';
 
   const handleShare = async () => {
     try {
@@ -23,7 +28,7 @@ export default function ReferEarnScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Refer & Earn" showBack onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroBox}>

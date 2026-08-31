@@ -15,7 +15,7 @@ export interface TrackingMapProps {
 export const TrackingMap: React.FC<TrackingMapProps> = ({
   estimatedTime = '12 mins away',
   technicianName = 'Technician',
-  customerAddress = 'Sector 48, Gurugram',
+  customerAddress = 'Service Location',
   style,
 }) => {
   return (

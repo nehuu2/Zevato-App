@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
@@ -14,7 +15,7 @@ export default function NotificationsScreen() {
   const [smsAlerts, setSmsAlerts] = useState(true);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Notification Settings" showBack onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>

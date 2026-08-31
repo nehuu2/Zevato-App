@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/spacing';
@@ -10,7 +11,7 @@ export default function PrivacyScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Privacy Policy" showBack onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionTitle}>1. Data Collection</Text>

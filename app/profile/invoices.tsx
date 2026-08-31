@@ -1,34 +1,38 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
+import EmptyState from '../../components/common/EmptyState';
 import { formatCurrency } from '../../utils/formatCurrency';
-
-const sampleInvoices = [
-  { id: 'INV-2026-89021', service: 'Power Jet AC Deep Cleaning', date: '30 Aug 2026', amount: 499, status: 'Paid' },
-  { id: 'INV-2026-88412', service: 'Drum Descaling Washing Machine', date: '28 Aug 2026', amount: 399, status: 'Paid' },
-  { id: 'INV-2026-87103', service: 'Water Purifier Filter Replacement', date: '15 Jul 2026', amount: 850, status: 'Paid' },
-];
+import { bookingStore } from '../../store/bookingStore';
 
 export default function InvoicesScreen() {
   const router = useRouter();
+  const bookings = bookingStore.getConfirmedBookings();
+  const paidBookings = bookings.filter((b) => b.paymentStatus === 'paid' || b.status === 'completed');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Invoices & Bills" showBack onBackPress={() => router.back()} />
       <View style={styles.container}>
         <FlatList
-          data={sampleInvoices}
+          data={paidBookings}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => router.push('/bookings/invoice')}
+              onPress={() =>
+                router.push({
+                  pathname: '/bookings/invoice',
+                  params: { id: item.id },
+                })
+              }
               style={styles.card}
             >
               <View style={styles.left}>
@@ -36,20 +40,29 @@ export default function InvoicesScreen() {
                   <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
                 </View>
                 <View>
-                  <Text style={styles.invNumber}>{item.id}</Text>
-                  <Text style={styles.serviceName}>{item.service}</Text>
-                  <Text style={styles.date}>{item.date}</Text>
+                  <Text style={styles.invNumber}>INV-{item.id.replace('BK-', '').replace('ZEV-', '')}</Text>
+                  <Text style={styles.serviceName}>{item.serviceName}</Text>
+                  <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
                 </View>
               </View>
 
               <View style={styles.right}>
-                <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
+                <Text style={styles.amount}>{formatCurrency(item.totalAmount)}</Text>
                 <View style={styles.paidBadge}>
-                  <Text style={styles.paidText}>{item.status}</Text>
+                  <Text style={styles.paidText}>Paid</Text>
                 </View>
               </View>
             </TouchableOpacity>
           )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="receipt-outline"
+              title="No Invoices Yet"
+              description="Your GST tax invoices and receipts will appear here after booking services."
+              actionTitle="Browse Services"
+              onActionPress={() => router.push('/(tabs)/services')}
+            />
+          }
           contentContainerStyle={styles.listContent}
         />
       </View>

@@ -15,23 +15,23 @@ export default function BookingConfirmedScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const lastBooking = bookingStore.getLastConfirmedBooking();
 
-  const bookingId = params.id || lastBooking?.id || 'ZEV-2026-89412';
+  const bookingId = params.id || lastBooking?.id || 'ZEV-CONFIRMED';
   const booking = lastBooking || {
     id: bookingId,
-    serviceName: 'Power Jet AC Deep Cleaning',
-    categoryName: 'Air Conditioner',
-    brandName: 'Daikin',
+    serviceName: 'Appliance Service',
+    categoryName: 'Home Appliance',
+    brandName: undefined,
     date: 'Today',
-    timeSlot: '02:00 PM - 04:00 PM',
+    timeSlot: 'Scheduled Slot',
     address: {
-      id: 'addr-1',
+      id: 'addr-booking',
       label: 'Home',
-      street: 'Flat 402, Lotus Orchid Heights, Sector 48',
-      city: 'Gurugram',
-      state: 'Haryana',
-      pincode: '122001',
+      street: 'Your Service Address',
+      city: '',
+      state: '',
+      pincode: '',
     },
-    paymentMethod: 'UPI Instant Pay',
+    paymentMethod: 'Prepaid / UPI',
     totalAmount: 499,
   };
 

@@ -6,6 +6,8 @@ import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 
+import { Image } from 'expo-image';
+
 export interface ProfileHeaderProps {
   user: UserProfile;
   onEditPress?: () => void;
@@ -17,22 +19,34 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onEditPress,
   style,
 }) => {
+  const nameParts = (user.name || '').trim().split(' ').filter(Boolean);
+  const initials =
+    nameParts.length > 0
+      ? nameParts
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .substring(0, 2)
+      : 'U';
+
   return (
     <View style={[styles.card, style]}>
-      <View style={styles.avatarBox}>
-        <Text style={styles.avatarInitials}>
-          {user.name
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .toUpperCase()
-            .substring(0, 2)}
-        </Text>
-      </View>
+      {user.avatarUrl ? (
+        <Image
+          source={{ uri: user.avatarUrl }}
+          style={styles.avatarImage}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
+        <View style={styles.avatarBox}>
+          <Text style={styles.avatarInitials}>{initials}</Text>
+        </View>
+      )}
 
       <View style={styles.info}>
         <View style={styles.nameRow}>
-          <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.name}>{user.name || 'User'}</Text>
           {user.hasProtectionPlan && (
             <View style={styles.proBadge}>
               <Ionicons name="sparkles" size={10} color="#FFF" />
@@ -40,8 +54,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             </View>
           )}
         </View>
-        <Text style={styles.phone}>{user.phone}</Text>
-        <Text style={styles.email}>{user.email}</Text>
+        {user.phone ? (
+          <Text style={styles.phone}>{user.phone}</Text>
+        ) : (
+          <Text style={[styles.phone, styles.placeholderText]}>No phone added</Text>
+        )}
+        {user.email ? (
+          <Text style={styles.email}>{user.email}</Text>
+        ) : null}
       </View>
 
       {onEditPress ? (
@@ -68,6 +88,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     ...Elevation.sm,
     marginVertical: Spacing.sm,
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.base,
+    backgroundColor: Colors.surface,
   },
   avatarBox: {
     width: 60,
@@ -118,6 +145,10 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: Typography.fontSize.xs,
+    color: Colors.textMuted,
+  },
+  placeholderText: {
+    fontStyle: 'italic',
     color: Colors.textMuted,
   },
   editBtn: {

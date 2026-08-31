@@ -7,10 +7,13 @@ import { authStore } from '../store/authStore';
 import Typography from '../constants/typography';
 import { BorderRadius, Spacing } from '../constants/spacing';
 
+import { useUser } from '@clerk/expo';
+
 export default function SplashScreen() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const { isLoaded, isSignedIn, user } = useUser();
 
   useEffect(() => {
     // Entrance animation
@@ -36,15 +39,24 @@ export default function SplashScreen() {
         new Promise((resolve) => setTimeout(resolve, 1600)),
       ]);
 
-      if (isOnboardingCompleted) {
-        router.replace('/(tabs)/home');
-      } else {
+      if (!isOnboardingCompleted) {
         router.replace('/(onboarding)/welcome');
+      } else if (isSignedIn) {
+        const isProfileComplete = Boolean(user?.unsafeMetadata?.profileCompleted);
+        if (isProfileComplete) {
+          router.replace('/(tabs)/home');
+        } else {
+          router.replace('/(auth)/complete-profile');
+        }
+      } else {
+        router.replace('/(auth)/login');
       }
     };
 
-    checkStateAndNavigate();
-  }, [fadeAnim, scaleAnim, router]);
+    if (isLoaded !== false) {
+      checkStateAndNavigate();
+    }
+  }, [fadeAnim, scaleAnim, router, isLoaded, isSignedIn, user]);
 
   return (
     <View style={styles.container}>

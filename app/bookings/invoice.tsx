@@ -13,11 +13,20 @@ import { mockBookings } from '../../data/bookings';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { Booking } from '../../types/booking';
 
+import { useUserProfile } from '../../hooks/useUserProfile';
+
 export default function InvoiceScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { fullName, defaultAddress } = useUserProfile();
 
   const booking: Booking = bookingStore.getBookingById(id || '') || mockBookings[0];
+  const customerName = fullName || 'Valued Customer';
+  const customerAddress = booking.address
+    ? `${booking.address.street}, ${booking.address.city}, ${booking.address.state} - ${booking.address.pincode}`
+    : defaultAddress
+    ? `${defaultAddress.street}, ${defaultAddress.city}, ${defaultAddress.state} - ${defaultAddress.pincode}`
+    : 'Customer Address';
 
   const totalAmount = booking.totalAmount || 499;
   const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
@@ -62,10 +71,8 @@ export default function InvoiceScreen() {
 
           <View style={styles.billToSection}>
             <Text style={styles.sectionLabel}>Billed To:</Text>
-            <Text style={styles.customerName}>Alex Johnson</Text>
-            <Text style={styles.addressText}>
-              {booking.address?.street}, {booking.address?.city}, {booking.address?.state} - {booking.address?.pincode}
-            </Text>
+            <Text style={styles.customerName}>{customerName}</Text>
+            <Text style={styles.addressText}>{customerAddress}</Text>
           </View>
 
           <View style={styles.divider} />

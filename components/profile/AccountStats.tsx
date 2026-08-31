@@ -12,9 +12,9 @@ export interface AccountStatsProps {
 }
 
 export const AccountStats: React.FC<AccountStatsProps> = ({
-  completedBookings = 14,
-  activeRequests = 1,
-  savedAmount = 2450,
+  completedBookings = 0,
+  activeRequests = 0,
+  savedAmount = 0,
   style,
 }) => {
   return (

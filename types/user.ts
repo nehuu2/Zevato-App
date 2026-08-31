@@ -6,6 +6,7 @@ export interface Address {
   city: string;
   state: string;
   pincode: string;
+  country?: string;
   isDefault?: boolean;
 }
 
@@ -18,6 +19,16 @@ export interface PaymentMethod {
   isDefault?: boolean;
 }
 
+export interface ClerkUserMetadata {
+  profileCompleted?: boolean;
+  phone?: string;
+  address?: Address | string;
+  addresses?: Address[];
+  paymentMethods?: PaymentMethod[];
+  hasProtectionPlan?: boolean;
+  [key: string]: unknown;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -27,5 +38,6 @@ export interface UserProfile {
   addresses: Address[];
   paymentMethods: PaymentMethod[];
   hasProtectionPlan?: boolean;
+  profileCompleted?: boolean;
   memberSince?: string;
 }

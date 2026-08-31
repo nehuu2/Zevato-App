@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
@@ -27,7 +28,7 @@ export default function SetPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Set Password" showBack onBackPress={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Secure Your Account</Text>
