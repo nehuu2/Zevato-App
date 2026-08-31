@@ -1,66 +1,140 @@
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Button from '../../components/common/Button';
 import { bookingStore } from '../../store/bookingStore';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export default function BookingConfirmedScreen() {
   const router = useRouter();
-  const draft = bookingStore.getState();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const lastBooking = bookingStore.getLastConfirmedBooking();
+
+  const bookingId = params.id || lastBooking?.id || 'ZEV-2026-89412';
+  const booking = lastBooking || {
+    id: bookingId,
+    serviceName: 'Power Jet AC Deep Cleaning',
+    categoryName: 'Air Conditioner',
+    brandName: 'Daikin',
+    date: 'Today',
+    timeSlot: '02:00 PM - 04:00 PM',
+    address: {
+      id: 'addr-1',
+      label: 'Home',
+      street: 'Flat 402, Lotus Orchid Heights, Sector 48',
+      city: 'Gurugram',
+      state: 'Haryana',
+      pincode: '122001',
+    },
+    paymentMethod: 'UPI Instant Pay',
+    totalAmount: 499,
+  };
 
   const handleDone = () => {
     bookingStore.resetBooking();
     router.replace('/(tabs)/home');
   };
 
-  const handleTrack = () => {
-    router.replace('/bookings/tracking');
+  const handleViewBooking = () => {
+    router.push({
+      pathname: '/bookings/[id]',
+      params: { id: bookingId },
+    });
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <View style={styles.successIconBox}>
-            <Ionicons name="checkmark-sharp" size={48} color={Colors.white} />
+          {/* Success Animated Badge */}
+          <View style={styles.successGlow}>
+            <View style={styles.successIconBox}>
+              <Ionicons name="checkmark" size={48} color={Colors.white} />
+            </View>
           </View>
 
           <Text style={styles.title}>Booking Confirmed!</Text>
           <Text style={styles.subtitle}>
-            Your service booking #{Math.floor(10000 + Math.random() * 90000)} has been placed successfully.
+            Your service appointment has been scheduled and technician assignment is underway.
           </Text>
 
+          {/* Booking ID Pill */}
+          <View style={styles.bookingIdPill}>
+            <Ionicons name="receipt-outline" size={14} color={Colors.primary} />
+            <Text style={styles.bookingIdText}>Booking ID: {bookingId}</Text>
+          </View>
+
+          {/* Detailed Summary Card */}
           <View style={styles.summaryCard}>
             <View style={styles.row}>
               <Text style={styles.label}>Appliance</Text>
-              <Text style={styles.val}>{draft.category?.name || 'Air Conditioner'}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Service</Text>
-              <Text style={styles.val}>{draft.service?.title || 'Standard Service'}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Schedule</Text>
-              <Text style={styles.val}>{draft.date || 'Today'}, {draft.timeSlot || '02:00 PM'}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Service Location</Text>
-              <Text style={styles.val} numberOfLines={1}>
-                {draft.address?.street || 'Sector 48, Gurugram'}
+              <Text style={styles.val}>
+                {booking.categoryName} {booking.brandName ? `(${booking.brandName})` : ''}
               </Text>
             </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Service Package</Text>
+              <Text style={styles.val} numberOfLines={1}>
+                {booking.serviceName}
+              </Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Scheduled Slot</Text>
+              <Text style={styles.val}>
+                {booking.date}, {booking.timeSlot}
+              </Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Service Location</Text>
+              <Text style={styles.val} numberOfLines={2}>
+                {booking.address?.street}, {booking.address?.city}
+              </Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Payment Method</Text>
+              <Text style={styles.val}>{booking.paymentMethod}</Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.row}>
+              <Text style={styles.totalLabel}>Total Paid</Text>
+              <Text style={styles.totalVal}>{formatCurrency(booking.totalAmount)}</Text>
+            </View>
+          </View>
+
+          {/* Guarantee Assurance */}
+          <View style={styles.guaranteeBox}>
+            <Ionicons name="shield-checkmark" size={16} color={Colors.success} />
+            <Text style={styles.guaranteeText}>
+              Protected by 30-Day Zevota Care Revisit Warranty.
+            </Text>
           </View>
         </View>
 
+        {/* Action Buttons */}
         <View style={styles.buttonGroup}>
           <Button
-            title="Track Technician Live"
-            leftIcon={<Ionicons name="navigate-outline" size={18} color={Colors.white} />}
-            onPress={handleTrack}
+            title="View Booking Details"
+            leftIcon={<Ionicons name="eye-outline" size={18} color={Colors.white} />}
+            onPress={handleViewBooking}
             style={styles.primaryBtn}
           />
 
@@ -88,16 +162,24 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.md,
+  },
+  successGlow: {
+    width: 104,
+    height: 104,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.successLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   successIconBox: {
-    width: 88,
-    height: 88,
+    width: 80,
+    height: 80,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.success,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
     ...Elevation.md,
   },
   title: {
@@ -111,8 +193,23 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: Spacing.xl,
-    maxWidth: 280,
+    marginBottom: Spacing.md,
+    maxWidth: 300,
+  },
+  bookingIdPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.lg,
+  },
+  bookingIdText: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: '700',
+    color: Colors.primaryDark,
   },
   summaryCard: {
     width: '100%',
@@ -125,7 +222,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.xs + 2,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
   },
   label: {
     fontSize: Typography.fontSize.xs,
@@ -135,15 +237,42 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs + 1,
     fontWeight: '600',
     color: Colors.text,
-    maxWidth: 180,
+    maxWidth: 200,
     textAlign: 'right',
+  },
+  totalLabel: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  totalVal: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: '800',
+    color: Colors.primaryDark,
+  },
+  guaranteeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+  },
+  guaranteeText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   buttonGroup: {
     gap: Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xs,
   },
   primaryBtn: {
     width: '100%',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   secondaryBtn: {
     width: '100%',

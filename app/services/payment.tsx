@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
@@ -15,38 +16,90 @@ const paymentOptions = [
   { id: 'upi', title: 'UPI Instant Pay', subtitle: 'Google Pay, PhonePe, Paytm', icon: 'qr-code-outline' },
   { id: 'card', title: 'Credit / Debit Card', subtitle: 'Visa, MasterCard, RuPay', icon: 'card-outline' },
   { id: 'netbanking', title: 'Net Banking', subtitle: 'All major Indian banks', icon: 'business-outline' },
-  { id: 'cod', title: 'Pay on Service Completion', subtitle: 'Cash or UPI after inspection', icon: 'cash-outline' },
+  { id: 'cod', title: 'Pay on Service Completion', subtitle: 'Cash or UPI to technician after repair', icon: 'cash-outline' },
 ];
 
 export default function PaymentScreen() {
   const router = useRouter();
-  const [selectedMethod, setSelectedMethod] = useState('upi');
-  const [loading, setLoading] = useState(false);
   const draft = bookingStore.getState();
+  const [selectedMethod, setSelectedMethod] = useState(draft.paymentMethod || 'upi');
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const servicePrice = draft.service?.price || 499;
+  const servicePrice = draft.service?.price || 399;
 
   const handleConfirmBooking = async () => {
+    // Validation
+    if (!draft.service) {
+      setErrorMsg('Service selection is missing. Please select a service package.');
+      return;
+    }
+    if (!draft.date || !draft.timeSlot) {
+      setErrorMsg('Appointment date or time slot is missing.');
+      return;
+    }
+    if (!draft.address) {
+      setErrorMsg('Service address is missing. Please select an address.');
+      return;
+    }
+
+    setErrorMsg(null);
     setLoading(true);
-    bookingStore.setPaymentMethod(selectedMethod);
-    // Simulate booking creation
+
+    const selectedOptionObj = paymentOptions.find((p) => p.id === selectedMethod);
+    bookingStore.setPaymentMethod(selectedOptionObj?.title || selectedMethod);
+
+    // Simulate local booking confirmation
     setTimeout(() => {
+      const confirmed = bookingStore.confirmBooking();
       setLoading(false);
-      router.replace('/services/booking-confirmed');
+      router.replace({
+        pathname: '/services/booking-confirmed',
+        params: { id: confirmed.id },
+      });
     }, 600);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Payment & Review" showBack onBackPress={() => router.back()} />
       <BookingStepper currentStep={4} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>Payment Method</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Booking Summary Review Card */}
+        <View style={styles.reviewCard}>
+          <Text style={styles.reviewTitle}>Appointment Summary</Text>
 
+          <View style={styles.reviewRow}>
+            <Ionicons name="construct" size={16} color={Colors.primary} />
+            <Text style={styles.reviewLabel}>Service:</Text>
+            <Text style={styles.reviewVal} numberOfLines={1}>
+              {draft.service?.title || 'Standard Service'}
+            </Text>
+          </View>
+
+          <View style={styles.reviewRow}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+            <Text style={styles.reviewLabel}>Slot:</Text>
+            <Text style={styles.reviewVal}>
+              {draft.date || 'Today'}, {draft.timeSlot || '02:00 PM'}
+            </Text>
+          </View>
+
+          <View style={styles.reviewRow}>
+            <Ionicons name="location-outline" size={16} color={Colors.primary} />
+            <Text style={styles.reviewLabel}>Address:</Text>
+            <Text style={styles.reviewVal} numberOfLines={1}>
+              {draft.address?.street || 'Sector 48, Gurugram'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Payment Methods Selection */}
+        <Text style={styles.sectionTitle}>Select Payment Method</Text>
         <View style={styles.paymentList}>
           {paymentOptions.map((opt) => {
-            const isSelected = opt.id === selectedMethod;
+            const isSelected = opt.id === selectedMethod || opt.title === selectedMethod;
             return (
               <TouchableOpacity
                 key={opt.id}
@@ -77,6 +130,7 @@ export default function PaymentScreen() {
           })}
         </View>
 
+        {/* Price Breakdown */}
         <PaymentSummary
           itemTotal={servicePrice}
           discount={0}
@@ -84,12 +138,22 @@ export default function PaymentScreen() {
           isMember={true}
         />
 
+        {errorMsg ? (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        ) : null}
+
+        {/* Action Button */}
         <Button
           title={`Confirm Booking (₹${servicePrice})`}
           loading={loading}
           onPress={handleConfirmBooking}
+          rightIcon={<Ionicons name="shield-checkmark" size={18} color={Colors.white} />}
           style={styles.submitBtn}
         />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -103,15 +167,46 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.base,
   },
+  reviewCard: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+    ...Elevation.sm,
+  },
+  reviewTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    gap: 8,
+  },
+  reviewLabel: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    width: 60,
+  },
+  reviewVal: {
+    flex: 1,
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: '600',
+    color: Colors.text,
+  },
   sectionTitle: {
     fontSize: Typography.fontSize.base,
     fontWeight: '700',
     color: Colors.text,
-    marginTop: Spacing.sm,
     marginBottom: Spacing.sm,
   },
   paymentList: {
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   paymentCard: {
     flexDirection: 'row',
@@ -156,8 +251,26 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.dangerLight,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginVertical: Spacing.sm,
+  },
+  errorText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.danger,
+    fontWeight: '600',
+  },
   submitBtn: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xl,
+    marginTop: Spacing.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

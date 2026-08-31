@@ -1,5 +1,5 @@
 import { Address } from './user';
-import { ServiceOption } from './service';
+import { Category, Brand, Product, ServiceOption } from './service';
 
 export type BookingStatus = 
   | 'pending'
@@ -45,4 +45,32 @@ export interface Booking {
   technician?: Technician;
   notes?: string;
   invoiceUrl?: string;
+}
+
+export interface BookingDraft {
+  category: Category | null;
+  brand: Brand | null;
+  product: Product | null;
+  service: ServiceOption | null;
+  date: string | null;
+  timeSlot: string | null;
+  address: Address | null;
+  paymentMethod: string | null;
+  notes: string;
+  discountAmount?: number;
+}
+
+export interface DateOption {
+  id: string;
+  dayName: string;
+  dateStr: string;
+  isToday?: boolean;
+  fullDate?: string;
+}
+
+export interface TimeSlotOption {
+  id: string;
+  time: string;
+  available: boolean;
+  period?: 'morning' | 'afternoon' | 'evening';
 }

@@ -4,13 +4,9 @@ import Colors from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import { Ionicons } from '@expo/vector-icons';
+import { TimeSlotOption } from '../../types/booking';
 
-export interface TimeSlotOption {
-  id: string;
-  time: string;
-  available: boolean;
-  period?: 'morning' | 'afternoon' | 'evening';
-}
+export { TimeSlotOption };
 
 export interface TimeSlotProps {
   slots: TimeSlotOption[];
@@ -44,7 +40,13 @@ export const TimeSlot: React.FC<TimeSlotProps> = ({
             ]}
           >
             <Ionicons
-              name={slot.period === 'morning' ? 'sunny-outline' : slot.period === 'afternoon' ? 'partly-sunny-outline' : 'moon-outline'}
+              name={
+                slot.period === 'morning'
+                  ? 'sunny-outline'
+                  : slot.period === 'afternoon'
+                  ? 'partly-sunny-outline'
+                  : 'moon-outline'
+              }
               size={16}
               color={
                 isSelected

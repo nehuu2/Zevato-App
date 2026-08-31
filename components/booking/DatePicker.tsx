@@ -3,13 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ViewStyle } from 
 import Colors from '../../constants/colors';
 import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
+import { DateOption } from '../../types/booking';
 
-export interface DateOption {
-  id: string;
-  dayName: string;
-  dateStr: string;
-  isToday?: boolean;
-}
+export { DateOption };
 
 export interface DatePickerProps {
   dates: DateOption[];
@@ -93,7 +89,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   dateCard: {
-    width: 68,
+    width: 72,
     paddingVertical: Spacing.md,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.lg,
@@ -117,7 +113,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
   },
   dateNumber: {
-    fontSize: Typography.fontSize.lg,
+    fontSize: Typography.fontSize.base,
     fontWeight: '700',
     color: Colors.text,
   },
