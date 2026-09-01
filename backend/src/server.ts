@@ -1,8 +1,10 @@
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import { config, prisma } from './config';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
+import { initSocket } from './socket';
 
 export const app = express();
 
@@ -43,18 +45,24 @@ app.use((req, res) => {
 // Centralized Error Handling Middleware
 app.use(errorHandler);
 
-// Start HTTP Server
+// Start HTTP Server with Socket.IO Attached
 export function startServer(port = config.port) {
-  const server = app.listen(port, () => {
-    console.log(`🚀 Zevota REST API server running at http://localhost:${port}`);
+  const httpServer = http.createServer(app);
+  
+  // Attach Socket.IO
+  initSocket(httpServer);
+
+  const server = httpServer.listen(port, () => {
+    console.log(`🚀 Zevota REST API & Realtime Server running at http://localhost:${port}`);
     console.log(`📡 Environment: ${config.nodeEnv}`);
+    console.log(`⚡ WebSocket / Socket.IO: Initialized`);
     console.log(`📦 Database: Connected via Prisma`);
   });
 
   server.on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`❌ Port ${port} is already in use by another process.`);
-      console.error(`👉 Run 'Get-Process -Id (Get-NetTCPConnection -LocalPort ${port}).OwningProcess | Stop-Process -Force' or set PORT in .env`);
+      console.error(`👉 Stop the existing process or change PORT in .env`);
     } else {
       console.error('Server error:', err);
     }

@@ -9,6 +9,9 @@ import {
 } from '../types';
 import { prisma } from '../config';
 import { AppError } from '../middleware/errorHandler';
+import { fakePaymentService } from '../services/fakePaymentService';
+import { realtimeService } from '../services/realtimeService';
+import { notificationService } from '../services/notificationService';
 
 // Helper to format booking response object for frontend compatibility
 function formatBooking(booking: any) {
@@ -50,11 +53,15 @@ function formatBooking(booking: any) {
     timeSlot: booking.scheduledTimeSlot,
     address: addressObj,
     paymentMethod: booking.paymentMethod,
+    paymentMethodType: booking.paymentMethodType || undefined,
     paymentStatus: booking.paymentStatus,
+    simulatedTransactionId: booking.simulatedTransactionId || undefined,
+    paidAt: booking.paidAt ? booking.paidAt.toISOString() : undefined,
     totalAmount: booking.total,
     discountAmount: booking.discount,
     taxAmount: booking.tax,
     status: booking.bookingStatus,
+    estimatedArrivalMinutes: booking.estimatedArrivalMinutes || 15,
     createdAt: booking.createdAt.toISOString(),
     technician: booking.technician
       ? {
@@ -213,7 +220,7 @@ export const bookingController = {
 
   /**
    * POST /api/bookings
-   * Create a new booking with authoritative server-side price computation
+   * Create a new booking with authoritative server-side price computation & simulated payment
    */
   createBooking: async (
     req: AuthenticatedRequest,
@@ -225,7 +232,7 @@ export const bookingController = {
         throw new AppError('Unauthorized', 401);
       }
 
-      const dto: CreateBookingDto = req.body;
+      const dto: CreateBookingDto & { simulatedOutcome?: 'success' | 'failure' | 'cancelled' } = req.body;
 
       if (!dto.scheduledDate || !dto.scheduledTimeSlot) {
         throw new AppError('Appointment date and time slot are required.', 400);
@@ -286,13 +293,13 @@ export const bookingController = {
         }
       }
 
-      // Auto-assign highest-rated available technician
+      // Auto-assign highest-rated available technician from pool
       const technician = await prisma.technician.findFirst({
         where: { available: true },
         orderBy: [{ rating: 'desc' }, { completedJobs: 'desc' }],
       });
 
-      // Authoritative calculations
+      // Authoritative financial calculations
       const subtotal = serviceOption.price;
       const discount = 0;
       const taxableAmount = Math.round((subtotal / 1.18) * 100) / 100;
@@ -305,6 +312,19 @@ export const bookingController = {
       const bookingId = `ZEV-2026-${randomSuffix}`;
       const bookingNumber = `BK-${randomSuffix}`;
       const invoiceNumber = `INV-${randomSuffix}`;
+
+      // Execute simulated payment via fakePaymentService
+      const paymentMethodStr = dto.paymentMethod || 'UPI Instant Pay';
+      const simPaymentResult = await fakePaymentService.processPayment({
+        bookingId,
+        amount: total,
+        paymentMethod: paymentMethodStr,
+        simulatedOutcome: dto.simulatedOutcome,
+      });
+
+      if (!simPaymentResult.success) {
+        throw new AppError(simPaymentResult.message || 'Simulated payment failed', 400);
+      }
 
       const selectedOptionSnapshot = JSON.stringify({
         id: serviceOption.id,
@@ -321,11 +341,6 @@ export const bookingController = {
         warrantyDays: serviceOption.warrantyDays,
       });
 
-      const isCOD =
-        dto.paymentMethod?.toLowerCase().includes('cash') ||
-        dto.paymentMethod?.toLowerCase().includes('completion') ||
-        dto.paymentMethod === 'cod';
-
       // Create Booking in Transaction with History and Invoice
       const createdBooking = await prisma.booking.create({
         data: {
@@ -341,21 +356,33 @@ export const bookingController = {
           addressSnapshot: JSON.stringify(addressSnapshotObj),
           scheduledDate: dto.scheduledDate,
           scheduledTimeSlot: dto.scheduledTimeSlot,
-          paymentMethod: dto.paymentMethod || 'UPI Instant Pay',
-          paymentStatus: isCOD ? 'cod' : 'paid',
-          bookingStatus: 'confirmed',
+          paymentMethod: paymentMethodStr,
+          paymentMethodType: simPaymentResult.paymentMethodType,
+          paymentStatus: simPaymentResult.status,
+          simulatedTransactionId: simPaymentResult.simulatedTransactionId,
+          paidAt: simPaymentResult.paidAt || null,
+          bookingStatus: technician ? 'technician_assigned' : 'confirmed',
           subtotal,
           discount,
           tax: totalTax,
           total,
           notes: dto.notes || null,
           technicianId: technician ? technician.id : null,
+          estimatedArrivalMinutes: 15,
           statusHistory: {
             create: [
               {
                 status: 'confirmed',
-                note: 'Booking registered and verified successfully.',
+                note: `Booking registered and simulated payment (${simPaymentResult.status}) processed.`,
               },
+              ...(technician
+                ? [
+                    {
+                      status: 'technician_assigned',
+                      note: `Technician ${technician.name} (${technician.rating}★) assigned.`,
+                    },
+                  ]
+                : []),
             ],
           },
           invoice: {
@@ -367,8 +394,8 @@ export const bookingController = {
               cgst,
               sgst,
               total,
-              paymentMethod: dto.paymentMethod || 'UPI Instant Pay',
-              paymentStatus: isCOD ? 'cod' : 'paid',
+              paymentMethod: paymentMethodStr,
+              paymentStatus: simPaymentResult.status,
             },
           },
         },
@@ -380,10 +407,30 @@ export const bookingController = {
         },
       });
 
+      const formatted = formatBooking(createdBooking);
+
+      // Real-time event broadcasting to user's private channel
+      realtimeService.emitToUser(req.user.id, 'booking.created', bookingId, formatted);
+      if (technician) {
+        realtimeService.emitToUser(req.user.id, 'technician.assigned', bookingId, {
+          bookingId,
+          technician: formatted.technician,
+        });
+      }
+
+      // Dispatch push notification asynchronously
+      notificationService.notifyBookingStatus(
+        req.user.id,
+        bookingNumber,
+        serviceOption.title,
+        'confirmed',
+        technician?.name
+      );
+
       res.status(201).json({
         success: true,
         message: 'Booking confirmed successfully',
-        data: formatBooking(createdBooking),
+        data: formatted,
       });
     } catch (error) {
       next(error);
@@ -392,7 +439,7 @@ export const bookingController = {
 
   /**
    * PATCH /api/bookings/:id/status
-   * Update booking status and append to status history
+   * Update booking status, append to status history, broadcast real-time event & push notification
    */
   updateBookingStatus: async (
     req: AuthenticatedRequest,
@@ -436,7 +483,7 @@ export const bookingController = {
         },
       });
 
-      // If completed, ensure service report exists
+      // If completed, ensure service report & invoice payment update
       if (status === 'completed') {
         const existingReport = await prisma.serviceReport.findUnique({
           where: { bookingId: id },
@@ -453,6 +500,18 @@ export const bookingController = {
             },
           });
         }
+
+        // If payment was cod, mark paid on completion
+        if (updated.paymentStatus === 'cod') {
+          await prisma.booking.update({
+            where: { id },
+            data: { paymentStatus: 'paid', paidAt: new Date() },
+          });
+          await prisma.invoice.updateMany({
+            where: { bookingId: id },
+            data: { paymentStatus: 'paid' },
+          });
+        }
       }
 
       const fullUpdated = await prisma.booking.findUnique({
@@ -466,10 +525,170 @@ export const bookingController = {
         },
       });
 
+      const formatted = formatBooking(fullUpdated);
+
+      // Broadcast real-time status change
+      realtimeService.emitStatusChanged(req.user.id, id, status, formatted);
+      if (status === 'completed') {
+        realtimeService.emitToUser(req.user.id, 'booking.completed', id, formatted);
+      }
+
+      // Dispatch push notification
+      notificationService.notifyBookingStatus(
+        req.user.id,
+        fullUpdated!.bookingNumber,
+        fullUpdated!.serviceName,
+        status,
+        fullUpdated!.technician?.name
+      );
+
       res.status(200).json({
         success: true,
         message: 'Status updated successfully',
-        data: formatBooking(fullUpdated),
+        data: formatted,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * PATCH /api/bookings/:id/technician-location
+   * Update live technician coordinates and broadcast to booking room
+   */
+  updateTechnicianLocation: async (
+    req: AuthenticatedRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new AppError('Unauthorized', 401);
+      }
+
+      const { id } = req.params;
+      const { latitude, longitude, estimatedArrivalMinutes = 8 } = req.body;
+
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        throw new AppError('Valid latitude and longitude are required', 400);
+      }
+
+      const booking = await prisma.booking.findFirst({
+        where: { id, userId: req.user.id },
+        include: { technician: true },
+      });
+
+      if (!booking) {
+        throw new AppError(`Booking #${id} not found or access denied.`, 404);
+      }
+
+      if (booking.technicianId) {
+        await prisma.technician.update({
+          where: { id: booking.technicianId },
+          data: {
+            currentLatitude: latitude,
+            currentLongitude: longitude,
+          },
+        });
+      }
+
+      await prisma.booking.update({
+        where: { id },
+        data: { estimatedArrivalMinutes },
+      });
+
+      // Broadcast real-time location update to user
+      realtimeService.emitTechnicianLocation(req.user.id, id, booking.technicianId || 'tech', {
+        latitude,
+        longitude,
+        estimatedArrivalMinutes,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Technician coordinates updated',
+        data: {
+          bookingId: id,
+          latitude,
+          longitude,
+          estimatedArrivalMinutes,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /api/bookings/:id/pay
+   * Execute simulated payment on an existing pending booking
+   */
+  payBooking: async (
+    req: AuthenticatedRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw new AppError('Unauthorized', 401);
+      }
+
+      const { id } = req.params;
+      const { paymentMethod = 'UPI Instant Pay', simulatedOutcome = 'success' } = req.body;
+
+      const booking = await prisma.booking.findFirst({
+        where: { id, userId: req.user.id },
+      });
+
+      if (!booking) {
+        throw new AppError(`Booking #${id} not found or access denied.`, 404);
+      }
+
+      const simResult = await fakePaymentService.processPayment({
+        bookingId: id,
+        amount: booking.total,
+        paymentMethod,
+        simulatedOutcome,
+      });
+
+      if (!simResult.success) {
+        throw new AppError(simResult.message, 400);
+      }
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: {
+          paymentStatus: simResult.status,
+          simulatedTransactionId: simResult.simulatedTransactionId,
+          paymentMethodType: simResult.paymentMethodType,
+          paidAt: simResult.paidAt || new Date(),
+        },
+        include: {
+          address: true,
+          technician: true,
+          serviceReport: true,
+          invoice: true,
+          statusHistory: true,
+        },
+      });
+
+      await prisma.invoice.updateMany({
+        where: { bookingId: id },
+        data: { paymentStatus: simResult.status },
+      });
+
+      const formatted = formatBooking(updated);
+
+      // Realtime payment event
+      realtimeService.emitPaymentUpdated(req.user.id, id, simResult.status, {
+        simulatedTransactionId: simResult.simulatedTransactionId,
+        total: booking.total,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: simResult.message,
+        data: formatted,
       });
     } catch (error) {
       next(error);
@@ -528,10 +747,23 @@ export const bookingController = {
         },
       });
 
+      const formatted = formatBooking(updated);
+
+      // Broadcast real-time cancellation
+      realtimeService.emitToUser(req.user.id, 'booking.cancelled', id, formatted);
+
+      // Push notification
+      notificationService.notifyBookingStatus(
+        req.user.id,
+        updated.bookingNumber,
+        updated.serviceName,
+        'cancelled'
+      );
+
       res.status(200).json({
         success: true,
         message: 'Booking cancelled successfully.',
-        data: formatBooking(updated),
+        data: formatted,
       });
     } catch (error) {
       next(error);

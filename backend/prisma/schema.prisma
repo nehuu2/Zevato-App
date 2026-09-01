@@ -8,23 +8,36 @@ datasource db {
 }
 
 model User {
-  id               String    @id @default(cuid())
-  clerkUserId      String    @unique
-  name             String
-  email            String
-  phone            String?
-  avatarUrl        String?
-  profileCompleted Boolean   @default(false)
-  hasProtectionPlan Boolean  @default(false)
-  memberSince      String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                String            @id @default(cuid())
+  clerkUserId       String            @unique
+  name              String
+  email             String
+  phone             String?
+  avatarUrl         String?
+  profileCompleted  Boolean           @default(false)
+  hasProtectionPlan Boolean           @default(false)
+  memberSince       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  addresses        Address[]
-  bookings         Booking[]
+  addresses         Address[]
+  bookings          Booking[]
+  pushTokens        PushDeviceToken[]
 
   @@index([clerkUserId])
   @@index([email])
+}
+
+model PushDeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String?  @default("mobile") // 'ios' | 'android' | 'web'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Address {
@@ -72,17 +85,17 @@ model Brand {
 }
 
 model Product {
-  id           String    @id
-  categoryId   String
-  category     Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  brandId      String
-  brand        Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  name         String
-  model        String?
-  image        String?
-  description  String
+  id            String    @id
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  brandId       String
+  brand         Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name          String
+  model         String?
+  image         String?
+  description   String
   startingPrice Float?
-  createdAt    DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([categoryId])
   @@index([brandId])
@@ -127,35 +140,39 @@ model Technician {
 }
 
 model Booking {
-  id                     String    @id
-  bookingNumber          String    @unique
+  id                     String                 @id
+  bookingNumber          String                 @unique
   userId                 String
-  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId             String
   categoryName           String
   brandName              String?
   productName            String?
   serviceOptionId        String
   serviceName            String
-  selectedOptionSnapshot String    // JSON string of selected package
+  selectedOptionSnapshot String                 // JSON string of selected package
   addressId              String?
-  address                Address?  @relation(fields: [addressId], references: [id], onDelete: SetNull)
-  addressSnapshot        String    // JSON string of address at time of booking
+  address                Address?               @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  addressSnapshot        String                 // JSON string of address at time of booking
   scheduledDate          String
   scheduledTimeSlot      String
   paymentMethod          String
-  paymentStatus          String    @default("paid")
-  bookingStatus          String    @default("confirmed")
+  paymentMethodType      String?                @default("simulated_upi") // 'simulated_upi' | 'simulated_card' | 'simulated_netbanking' | 'cod'
+  paymentStatus          String                 @default("paid")          // 'paid' | 'pending' | 'failed' | 'cancelled' | 'cod'
+  simulatedTransactionId String?
+  paidAt                 DateTime?
+  bookingStatus          String                 @default("confirmed")     // 'pending' | 'confirmed' | 'technician_assigned' | 'on_the_way' | 'in_progress' | 'completed' | 'cancelled'
+  estimatedArrivalMinutes Int?                  @default(15)
   subtotal               Float
-  discount               Float     @default(0)
-  tax                    Float     @default(0)
+  discount               Float                  @default(0)
+  tax                    Float                  @default(0)
   total                  Float
   notes                  String?
   cancellationReason     String?
   technicianId           String?
-  technician             Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  technician             Technician?            @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
   statusHistory          BookingStatusHistory[]
   serviceReport          ServiceReport?
@@ -164,6 +181,7 @@ model Booking {
   @@index([userId])
   @@index([bookingStatus])
   @@index([technicianId])
+  @@index([paymentStatus])
 }
 
 model BookingStatusHistory {

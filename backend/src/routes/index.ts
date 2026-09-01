@@ -2,6 +2,7 @@ import { Router } from 'express';
 import userRoutes from './userRoutes';
 import catalogRoutes from './catalogRoutes';
 import bookingRoutes from './bookingRoutes';
+import notificationRoutes from './notificationRoutes';
 
 const router = Router();
 
@@ -11,6 +12,9 @@ router.get('/health', (req, res) => {
     status: 'online',
     timestamp: new Date().toISOString(),
     service: 'Zevota REST API',
+    realtime: 'Socket.IO Enabled',
+    notifications: 'Expo Push Enabled',
+    payments: 'Simulated Demo Gateway',
   });
 });
 
@@ -18,5 +22,6 @@ router.get('/health', (req, res) => {
 router.use('/', userRoutes);
 router.use('/', catalogRoutes);
 router.use('/bookings', bookingRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;
