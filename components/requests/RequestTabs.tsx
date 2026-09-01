@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ViewStyle } from 'react-native';
 import Colors from '../../constants/colors';
 import { BorderRadius, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
@@ -26,96 +26,80 @@ export const RequestTabs: React.FC<RequestTabsProps> = ({
   style,
 }) => {
   return (
-    <View style={[styles.container, style]}>
-      {tabs.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <TouchableOpacity
-            key={tab.id}
-            activeOpacity={0.8}
-            onPress={() => onTabChange(tab.id)}
-            style={[
-              styles.tabButton,
-              isActive && styles.tabButtonActive,
-            ]}
-          >
-            <Text
+    <View style={[styles.wrapper, style]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTab;
+          const displayCount = tab.count !== undefined ? tab.count : 0;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              activeOpacity={0.8}
+              onPress={() => onTabChange(tab.id)}
               style={[
-                styles.tabText,
-                isActive && styles.tabTextActive,
+                styles.tabButton,
+                isActive ? styles.tabButtonActive : styles.tabButtonInactive,
               ]}
             >
-              {tab.label}
-            </Text>
-            {tab.count !== undefined && (
-              <View
+              <Text
                 style={[
-                  styles.countBadge,
-                  isActive && styles.countBadgeActive,
+                  styles.tabText,
+                  isActive ? styles.tabTextActive : styles.tabTextInactive,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.countText,
-                    isActive && styles.countTextActive,
-                  ]}
-                >
-                  {tab.count}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        );
-      })}
+                {tab.label} ({displayCount})
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    padding: 4,
-    borderRadius: BorderRadius.lg,
+  wrapper: {
     marginVertical: Spacing.sm,
   },
-  tabButton: {
-    flex: 1,
+  scrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  tabButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    gap: 6,
   },
   tabButtonActive: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.primary,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabButtonInactive: {
+    backgroundColor: '#F0F3FA',
   },
   tabText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: Typography.fontSize.xs + 1,
     fontWeight: '600',
-    color: Colors.textSecondary,
   },
   tabTextActive: {
-    color: Colors.primary,
+    color: Colors.white,
     fontWeight: '700',
   },
-  countBadge: {
-    backgroundColor: Colors.border,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.full,
-  },
-  countBadgeActive: {
-    backgroundColor: Colors.primaryLight,
-  },
-  countText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  countTextActive: {
-    color: Colors.primaryDark,
+  tabTextInactive: {
+    color: '#4B5563',
   },
 });
 
