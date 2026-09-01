@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@clerk/expo';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
 import { pushNotificationService } from '../services/notifications';
 
 /**
@@ -8,8 +8,8 @@ import { pushNotificationService } from '../services/notifications';
  */
 export function usePushNotifications() {
   const { isSignedIn } = useAuth();
-  const notificationListener = useRef<Notifications.Subscription | null>(null);
-  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationListener = useRef<{ remove: () => void } | null>(null);
+  const responseListener = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -17,15 +17,21 @@ export function usePushNotifications() {
     // Register token on user sign in
     pushNotificationService.registerForPushNotificationsAsync();
 
-    // Listen for incoming notifications when app is foregrounded
-    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('🔔 Foreground Notification Received:', notification.request.content.title);
-    });
+    // Push listeners are only active outside Expo Go (development build or standalone APK)
+    if (!isRunningInExpoGo()) {
+      try {
+        const Notifications = require('expo-notifications');
+        notificationListener.current = Notifications.addNotificationReceivedListener((notification: any) => {
+          console.log('🔔 Foreground Notification Received:', notification.request.content.title);
+        });
 
-    // Listen for user interactions with notifications
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('👉 User tapped notification:', response.notification.request.content.data);
-    });
+        responseListener.current = Notifications.addNotificationResponseReceivedListener((response: any) => {
+          console.log('👉 User tapped notification:', response.notification.request.content.data);
+        });
+      } catch (e) {
+        console.warn('Push notification listener init error:', e);
+      }
+    }
 
     return () => {
       if (notificationListener.current) {

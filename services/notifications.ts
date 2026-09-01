@@ -1,27 +1,36 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { isRunningInExpoGo } from 'expo';
 import { apiClient } from './api';
 
-// Configure foreground notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+let Notifications: typeof import('expo-notifications') | null = null;
+
+// Only load and initialize native push notification handlers outside of Expo Go
+if (!isRunningInExpoGo()) {
+  try {
+    Notifications = require('expo-notifications');
+    Notifications?.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to load expo-notifications:', err);
+  }
+}
 
 export const pushNotificationService = {
   /**
    * Request push notification permission and register Expo push token with backend
    */
   registerForPushNotificationsAsync: async (): Promise<string | null> => {
-    if (!Device.isDevice) {
-      console.log('ℹ️ Push notifications require a physical device. Simulation mode enabled.');
-      // Return a simulated development device token for emulator/simulator testing
+    // In Expo Go or non-physical simulators, use simulated push token
+    if (isRunningInExpoGo() || !Device.isDevice) {
+      console.log('ℹ️ Push notifications in Expo Go/Simulator running in simulation mode.');
       const simToken = `ExponentPushToken[SIM_DEV_${Platform.OS}_${Date.now()}]`;
       try {
         await apiClient.post('/notifications/register-token', {
@@ -32,6 +41,10 @@ export const pushNotificationService = {
         console.warn('Sim token registration notice:', err);
       }
       return simToken;
+    }
+
+    if (!Notifications) {
+      return null;
     }
 
     try {
