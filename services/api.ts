@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 /**
  * Zevota API Client with Clerk JWT Authorization and Resilient Error Handling
@@ -10,16 +11,39 @@ export const setAuthTokenGetter = (getter: () => Promise<string | null>) => {
   authTokenGetter = getter;
 };
 
-const getBaseUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+export const getDevServerIp = (): string => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    return hostUri.split(':')[0];
   }
-  // Android emulator requires 10.0.2.2 to access host machine localhost
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000/api';
+  const debuggerHost = (Constants.manifest2 as any)?.extra?.expoGo?.debuggerHost;
+  if (debuggerHost) {
+    return debuggerHost.split(':')[0];
   }
-  return 'http://localhost:4000/api';
+  return Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 };
+
+const getBaseUrl = (): string => {
+  const devServerIp = getDevServerIp();
+
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    try {
+      const url = new URL(process.env.EXPO_PUBLIC_API_URL);
+      // In development on physical devices (Expo Go), if EXPO_PUBLIC_API_URL points to a different IP than Metro host,
+      // adapt automatically to current Metro LAN IP
+      if (__DEV__ && devServerIp && devServerIp !== 'localhost' && devServerIp !== '10.0.2.2' && url.hostname !== devServerIp) {
+        const port = url.port || '4000';
+        const path = url.pathname.replace(/\/$/, '') || '/api';
+        return `http://${devServerIp}:${port}${path}`;
+      }
+      return process.env.EXPO_PUBLIC_API_URL;
+    } catch {
+      return process.env.EXPO_PUBLIC_API_URL;
+    }
+  }
+  return `http://${devServerIp}:4000/api`;
+};
+
 
 export class ApiError extends Error {
   statusCode: number;

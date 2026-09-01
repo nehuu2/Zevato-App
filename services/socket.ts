@@ -1,18 +1,40 @@
 import { io, Socket } from 'socket.io-client';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 let socket: Socket | null = null;
 let currentTokenGetter: (() => Promise<string | null>) | null = null;
 
+const getDevServerIp = (): string => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    return hostUri.split(':')[0];
+  }
+  const debuggerHost = (Constants.manifest2 as any)?.extra?.expoGo?.debuggerHost;
+  if (debuggerHost) {
+    return debuggerHost.split(':')[0];
+  }
+  return Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+};
+
 const getWsUrl = (): string => {
+  const devServerIp = getDevServerIp();
+
   if (process.env.EXPO_PUBLIC_API_URL) {
-    const url = new URL(process.env.EXPO_PUBLIC_API_URL);
-    return `${url.protocol}//${url.host}`;
+    try {
+      const url = new URL(process.env.EXPO_PUBLIC_API_URL);
+      // In development on physical devices (Expo Go), if EXPO_PUBLIC_API_URL points to a different IP than Metro host,
+      // adapt automatically to current Metro LAN IP
+      if (__DEV__ && devServerIp && devServerIp !== 'localhost' && devServerIp !== '10.0.2.2' && url.hostname !== devServerIp) {
+        const port = url.port || '4000';
+        return `http://${devServerIp}:${port}`;
+      }
+      return `${url.protocol}//${url.host}`;
+    } catch {
+      return process.env.EXPO_PUBLIC_API_URL.replace(/\/api\/?$/, '');
+    }
   }
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000';
-  }
-  return 'http://localhost:4000';
+  return `http://${devServerIp}:4000`;
 };
 
 export const socketService = {
@@ -29,19 +51,28 @@ export const socketService = {
         return null;
       }
 
-      if (socket && socket.connected) {
+      if (socket) {
+        if (socket.connected) {
+          return socket;
+        }
+        socket.auth = { token };
+        socket.connect();
         return socket;
       }
 
       const wsUrl = getWsUrl();
+      console.log(`⚡ [Socket] Connecting to ${wsUrl}...`);
 
       socket = io(wsUrl, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 2000,
+        reconnectionAttempts: 20,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
       });
+
 
       socket.on('connect', () => {
         console.log('⚡ [Socket Connected] ID:', socket?.id);

@@ -107,17 +107,29 @@ export const requireAuth = async (
         }
       }
 
-      dbUser = await prisma.user.create({
-        data: {
-          clerkUserId,
-          email: fetchedEmail,
-          name: fetchedName,
-          phone: fetchedPhone,
-          avatarUrl: fetchedAvatar,
-          profileCompleted: false,
-          memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-        },
-      });
+      try {
+        dbUser = await prisma.user.upsert({
+          where: { clerkUserId },
+          update: {},
+          create: {
+            clerkUserId,
+            email: fetchedEmail,
+            name: fetchedName,
+            phone: fetchedPhone,
+            avatarUrl: fetchedAvatar,
+            profileCompleted: false,
+            memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          },
+        });
+      } catch (upsertErr) {
+        // Concurrency collision fallback: read user record created by parallel request
+        dbUser = await prisma.user.findUnique({
+          where: { clerkUserId },
+        });
+        if (!dbUser) {
+          throw upsertErr;
+        }
+      }
     }
 
     const authUser: AuthenticatedUser = {

@@ -14,7 +14,8 @@
     "seed": "tsx prisma/seed.ts",
     "test": "tsx test/api-test.ts",
     "test:phase7": "tsx test/phase7-test.ts",
-    "test:all": "tsx test/api-test.ts; tsx test/phase7-test.ts"
+    "test:concurrency": "tsx test/concurrency-test.ts",
+    "test:all": "tsx test/api-test.ts; tsx test/phase7-test.ts; tsx test/concurrency-test.ts"
   },
   "keywords": [
     "zevota",

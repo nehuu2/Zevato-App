@@ -52,8 +52,8 @@ export function startServer(port = config.port) {
   // Attach Socket.IO
   initSocket(httpServer);
 
-  const server = httpServer.listen(port, () => {
-    console.log(`🚀 Zevota REST API & Realtime Server running at http://localhost:${port}`);
+  const server = httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Zevota REST API & Realtime Server running at http://0.0.0.0:${port}`);
     console.log(`📡 Environment: ${config.nodeEnv}`);
     console.log(`⚡ WebSocket / Socket.IO: Initialized`);
     console.log(`📦 Database: Connected via Prisma`);
