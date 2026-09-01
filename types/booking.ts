@@ -32,8 +32,36 @@ export interface ServiceReportData {
   ratingGiven?: number;
 }
 
+export interface InvoiceData {
+  id?: string;
+  bookingId?: string;
+  invoiceNumber: string;
+  customerName?: string;
+  customerAddress?: string;
+  serviceName?: string;
+  categoryName?: string;
+  brandName?: string;
+  subtotal: number;
+  discount: number;
+  taxableAmount: number;
+  cgst: number;
+  sgst: number;
+  total: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  issuedAt: string;
+}
+
+export interface BookingStatusHistoryItem {
+  id: string;
+  status: BookingStatus;
+  note?: string;
+  timestamp: string;
+}
+
 export interface Booking {
   id: string;
+  bookingNumber?: string;
   serviceId: string;
   serviceName: string;
   categoryName: string;
@@ -44,17 +72,23 @@ export interface Booking {
   timeSlot: string;
   address: Address;
   paymentMethod: string;
-  paymentStatus: 'paid' | 'pending' | 'failed' | 'cod';
+  paymentMethodType?: string;
+  paymentStatus: 'paid' | 'pending' | 'failed' | 'cancelled' | 'cod';
+  simulatedTransactionId?: string;
+  paidAt?: string;
   totalAmount: number;
   discountAmount?: number;
   taxAmount?: number;
   status: BookingStatus;
+  estimatedArrivalMinutes?: number;
   createdAt: string;
   technician?: Technician;
   serviceReport?: ServiceReportData;
+  invoice?: InvoiceData;
   notes?: string;
   cancellationReason?: string;
   invoiceUrl?: string;
+  statusHistory?: BookingStatusHistoryItem[];
 }
 
 export interface BookingDraft {

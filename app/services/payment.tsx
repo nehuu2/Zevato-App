@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import Button from '../../components/common/Button';
 import BookingStepper from '../../components/booking/BookingStepper';
 import PaymentSummary from '../../components/booking/PaymentSummary';
 import { bookingStore } from '../../store/bookingStore';
+import { bookingService } from '../../services/bookings';
 
 const paymentOptions = [
   { id: 'upi', title: 'UPI Instant Pay', subtitle: 'Google Pay, PhonePe, Paytm', icon: 'qr-code-outline' },
@@ -24,26 +25,14 @@ export default function PaymentScreen() {
   const draft = bookingStore.getState();
   const [selectedMethod, setSelectedMethod] = useState(draft.paymentMethod || 'upi');
   const [loading, setLoading] = useState(false);
+  const [processingStage, setProcessingStage] = useState('Initiating simulated payment...');
+  const [testOutcome, setTestOutcome] = useState<'success' | 'failure' | 'cancelled'>('success');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const servicePrice = draft.service?.price || 399;
 
   const handleConfirmBooking = async () => {
-    // Auto-fallback for service if booked via quick request
-    if (!draft.service) {
-      const fallbackService = {
-        id: 'opt-std',
-        title: 'Standard Appliance Service',
-        description: 'Comprehensive inspection and diagnostic checkup',
-        duration: '45 - 60 mins',
-        price: 399,
-        features: ['Standard inspection', '30-day warranty'],
-        included: ['Diagnosis', 'Basic labor'],
-        excluded: ['Parts cost'],
-        warrantyDays: 30,
-      };
-      bookingStore.setService(fallbackService);
-    }
+    const serviceOptionId = draft.service?.id || 'ac-foam-jet';
 
     if (!draft.date || !draft.timeSlot) {
       setErrorMsg('Appointment date or time slot is missing.');
@@ -56,19 +45,58 @@ export default function PaymentScreen() {
 
     setErrorMsg(null);
     setLoading(true);
+    setProcessingStage('Simulating bank gateway handshake...');
 
     const selectedOptionObj = paymentOptions.find((p) => p.id === selectedMethod);
-    bookingStore.setPaymentMethod(selectedOptionObj?.title || selectedMethod);
+    const chosenPaymentMethod = selectedOptionObj?.title || selectedMethod;
+    bookingStore.setPaymentMethod(chosenPaymentMethod);
 
-    // Simulate local booking confirmation
+    // Simulate realistic payment processing latency
     setTimeout(() => {
-      const confirmed = bookingStore.confirmBooking();
-      setLoading(false);
-      router.replace({
-        pathname: '/services/booking-confirmed',
-        params: { id: confirmed.id },
+      setProcessingStage('Authorizing simulated credentials...');
+    }, 400);
+
+    try {
+      const createdBooking = await bookingService.createBooking({
+        serviceOptionId,
+        addressId: draft.address.id.startsWith('addr-') ? undefined : draft.address.id,
+        address: {
+          label: draft.address.label,
+          street: draft.address.street,
+          apartment: draft.address.apartment,
+          city: draft.address.city,
+          state: draft.address.state,
+          pincode: draft.address.pincode,
+          country: draft.address.country,
+        },
+        scheduledDate: draft.date,
+        scheduledTimeSlot: draft.timeSlot,
+        paymentMethod: chosenPaymentMethod,
+        notes: draft.notes,
+        simulatedOutcome: testOutcome,
       });
-    }, 600);
+
+      setProcessingStage('Simulated payment approved! 🎉');
+
+      setTimeout(() => {
+        bookingStore.addConfirmedBooking(createdBooking);
+        bookingStore.setLastConfirmedBooking(createdBooking);
+        setLoading(false);
+        router.replace({
+          pathname: '/services/booking-confirmed',
+          params: { id: createdBooking.id },
+        });
+      }, 500);
+    } catch (err: any) {
+      setLoading(false);
+      console.warn('Simulated payment failed:', err);
+      const message = err.message || 'Simulated transaction could not be completed.';
+      setErrorMsg(message);
+      Alert.alert(
+        testOutcome === 'cancelled' ? 'Payment Cancelled' : 'Payment Failed',
+        message
+      );
+    }
   };
 
   return (
@@ -77,6 +105,17 @@ export default function PaymentScreen() {
       <BookingStepper currentStep={4} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Simulated Demo Mode Banner */}
+        <View style={styles.demoBanner}>
+          <Ionicons name="shield-checkmark" size={16} color="#059669" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.demoBannerTitle}>Simulated Development Payment System</Text>
+            <Text style={styles.demoBannerSubtitle}>
+              Safe demo environment. No real money, bank cards, or financial credentials are required or processed.
+            </Text>
+          </View>
+        </View>
+
         {/* Booking Summary Review Card */}
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>Appointment Summary</Text>
@@ -151,6 +190,38 @@ export default function PaymentScreen() {
           isMember={true}
         />
 
+        {/* Dev Testing Controls for Simulation */}
+        {__DEV__ && (
+          <View style={styles.devControlBox}>
+            <Text style={styles.devControlTitle}>🧪 Developer Simulation Controls</Text>
+            <Text style={styles.devControlSubtitle}>Simulate different gateway responses:</Text>
+            <View style={styles.devPillsRow}>
+              {(['success', 'failure', 'cancelled'] as const).map((outcome) => (
+                <TouchableOpacity
+                  key={outcome}
+                  activeOpacity={0.8}
+                  onPress={() => setTestOutcome(outcome)}
+                  style={[
+                    styles.devPill,
+                    testOutcome === outcome && styles.devPillActive,
+                    outcome === 'failure' && testOutcome === outcome && styles.devPillFailure,
+                    outcome === 'cancelled' && testOutcome === outcome && styles.devPillCancelled,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.devPillText,
+                      testOutcome === outcome && styles.devPillTextActive,
+                    ]}
+                  >
+                    {outcome === 'success' ? '🟢 Success' : outcome === 'failure' ? '🔴 Fail' : '🟡 Cancel'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {errorMsg ? (
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle" size={16} color={Colors.danger} />
@@ -160,7 +231,7 @@ export default function PaymentScreen() {
 
         {/* Action Button */}
         <Button
-          title={`Confirm Booking (₹${servicePrice})`}
+          title={loading ? processingStage : `Confirm & Pay (₹${servicePrice})`}
           loading={loading}
           onPress={handleConfirmBooking}
           rightIcon={<Ionicons name="shield-checkmark" size={18} color={Colors.white} />}
@@ -179,6 +250,28 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.base,
+  },
+  demoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.md,
+  },
+  demoBannerTitle: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  demoBannerSubtitle: {
+    fontSize: 11,
+    color: '#047857',
+    marginTop: 2,
+    lineHeight: 15,
   },
   reviewCard: {
     backgroundColor: Colors.white,
@@ -263,6 +356,60 @@ const styles = StyleSheet.create({
   methodSubtitle: {
     fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
+  },
+  devControlBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginVertical: Spacing.sm,
+  },
+  devControlTitle: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  devControlSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginVertical: 4,
+  },
+  devPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  devPill: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+  },
+  devPillActive: {
+    borderColor: '#059669',
+    backgroundColor: '#ECFDF5',
+  },
+  devPillFailure: {
+    borderColor: Colors.danger,
+    backgroundColor: Colors.dangerLight,
+  },
+  devPillCancelled: {
+    borderColor: '#D97706',
+    backgroundColor: '#FEF3C7',
+  },
+  devPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  devPillTextActive: {
+    fontWeight: '700',
+    color: '#065F46',
   },
   errorBox: {
     flexDirection: 'row',

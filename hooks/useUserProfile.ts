@@ -1,5 +1,7 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/expo';
 import { Address, PaymentMethod, UserProfile, ClerkUserMetadata } from '../types/user';
+import { userService } from '../services/users';
 
 export interface CompleteProfileParams {
   name?: string;
@@ -33,6 +35,7 @@ export interface UseUserProfileReturn {
   isProfileCompleted: boolean;
   memberSince?: string;
   profile: UserProfile;
+  refreshProfile: () => Promise<void>;
   updateProfile: (updates: {
     fullName?: string;
     firstName?: string;
@@ -55,24 +58,28 @@ export interface UseUserProfileReturn {
 
 export function useUserProfile(): UseUserProfileReturn {
   const { user, isLoaded, isSignedIn } = useUser();
+  const [dbAddresses, setDbAddresses] = useState<Address[]>([]);
+  const [dbProfile, setDbProfile] = useState<Partial<UserProfile> | null>(null);
 
   const id = user?.id || '';
   const firstName = user?.firstName || '';
   const lastName = user?.lastName || '';
   const fullName =
+    dbProfile?.name ||
     user?.fullName ||
     (firstName || lastName ? `${firstName} ${lastName}`.trim() : '') ||
     (isSignedIn ? 'User' : 'Guest');
 
   const email =
+    dbProfile?.email ||
     user?.primaryEmailAddress?.emailAddress ||
     user?.emailAddresses?.[0]?.emailAddress ||
     '';
 
   const metadata = (user?.unsafeMetadata || {}) as ClerkUserMetadata;
-  const phone = (metadata.phone as string) || user?.primaryPhoneNumber?.phoneNumber || '';
-  const avatarUrl = user?.imageUrl || undefined;
-  const profileCompleted = Boolean(metadata.profileCompleted);
+  const phone = (dbProfile?.phone as string) || (metadata.phone as string) || user?.primaryPhoneNumber?.phoneNumber || '';
+  const avatarUrl = dbProfile?.avatarUrl || user?.imageUrl || undefined;
+  const profileCompleted = Boolean(dbProfile?.profileCompleted ?? metadata.profileCompleted);
 
   // Derive initials
   const initials = (fullName || 'U')
@@ -83,38 +90,40 @@ export function useUserProfile(): UseUserProfileReturn {
     .toUpperCase()
     .substring(0, 2) || 'U';
 
-  // Addresses from Clerk unsafeMetadata
-  let addresses: Address[] = [];
-  if (Array.isArray(metadata.addresses)) {
-    addresses = metadata.addresses;
-  } else if (metadata.address) {
-    if (typeof metadata.address === 'string') {
-      addresses = [
-        {
-          id: 'addr-primary',
-          label: 'Home',
-          street: metadata.address,
-          city: '',
-          state: '',
-          pincode: '',
-          country: 'India',
-          isDefault: true,
-        },
-      ];
-    } else if (typeof metadata.address === 'object') {
-      addresses = [
-        {
-          id: metadata.address.id || 'addr-primary',
-          label: metadata.address.label || 'Home',
-          street: metadata.address.street || '',
-          apartment: metadata.address.apartment || '',
-          city: metadata.address.city || '',
-          state: metadata.address.state || '',
-          pincode: metadata.address.pincode || '',
-          country: metadata.address.country || 'India',
-          isDefault: true,
-        },
-      ];
+  // Addresses priority: Database addresses > Clerk metadata addresses
+  let addresses: Address[] = dbAddresses;
+  if (addresses.length === 0) {
+    if (Array.isArray(metadata.addresses)) {
+      addresses = metadata.addresses;
+    } else if (metadata.address) {
+      if (typeof metadata.address === 'string') {
+        addresses = [
+          {
+            id: 'addr-primary',
+            label: 'Home',
+            street: metadata.address,
+            city: 'Gurugram',
+            state: 'Haryana',
+            pincode: '122001',
+            country: 'India',
+            isDefault: true,
+          },
+        ];
+      } else if (typeof metadata.address === 'object') {
+        addresses = [
+          {
+            id: metadata.address.id || 'addr-primary',
+            label: metadata.address.label || 'Home',
+            street: metadata.address.street || '',
+            apartment: metadata.address.apartment || '',
+            city: metadata.address.city || '',
+            state: metadata.address.state || '',
+            pincode: metadata.address.pincode || '',
+            country: metadata.address.country || 'India',
+            isDefault: true,
+          },
+        ];
+      }
     }
   }
 
@@ -130,7 +139,7 @@ export function useUserProfile(): UseUserProfileReturn {
     ? metadata.paymentMethods
     : [];
 
-  const hasProtectionPlan = Boolean(metadata.hasProtectionPlan);
+  const hasProtectionPlan = Boolean(dbProfile?.hasProtectionPlan ?? metadata.hasProtectionPlan);
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     : undefined;
@@ -147,6 +156,36 @@ export function useUserProfile(): UseUserProfileReturn {
     profileCompleted,
     memberSince,
   };
+
+  // Sync profile & addresses from backend on sign-in
+  const fetchBackendData = useCallback(async () => {
+    if (!isSignedIn) return;
+    try {
+      const [userRes, addrRes] = await Promise.allSettled([
+        userService.getProfile(),
+        userService.getAddresses(),
+      ]);
+
+      if (userRes.status === 'fulfilled' && userRes.value) {
+        setDbProfile(userRes.value);
+        if (userRes.value.addresses && userRes.value.addresses.length > 0) {
+          setDbAddresses(userRes.value.addresses);
+        }
+      }
+
+      if (addrRes.status === 'fulfilled' && Array.isArray(addrRes.value)) {
+        setDbAddresses(addrRes.value);
+      }
+    } catch (e) {
+      console.warn('Backend sync failed, falling back to local session:', e);
+    }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetchBackendData();
+    }
+  }, [isSignedIn, fetchBackendData]);
 
   const updateProfile = async (updates: {
     fullName?: string;
@@ -181,18 +220,33 @@ export function useUserProfile(): UseUserProfileReturn {
       ...(updates.profileCompleted !== undefined ? { profileCompleted: updates.profileCompleted } : {}),
     };
 
+    // Update Clerk
     await user.update({
       ...(fName !== undefined ? { firstName: fName } : {}),
       ...(lName !== undefined ? { lastName: lName } : {}),
       unsafeMetadata: updatedMetadata,
     });
+
+    // Update Backend Database
+    try {
+      const updatedDbUser = await userService.updateProfile({
+        name: updates.fullName,
+        phone: updates.phone,
+        profileCompleted: updates.profileCompleted,
+      });
+      if (updatedDbUser) {
+        setDbProfile(updatedDbUser);
+      }
+    } catch (err) {
+      console.warn('Backend profile update sync warning:', err);
+    }
   };
 
   const completeProfile = async (params: CompleteProfileParams) => {
     if (!user) return;
 
     const primaryAddr: Address = {
-      id: 'addr-primary',
+      id: 'addr-' + Date.now(),
       label: 'Home',
       street: params.street.trim(),
       apartment: params.apartment?.trim(),
@@ -225,14 +279,44 @@ export function useUserProfile(): UseUserProfileReturn {
       lastName: lName || undefined,
       unsafeMetadata: updatedMetadata,
     });
+
+    // Sync to Backend Database
+    try {
+      await userService.updateProfile({
+        name: params.name ? params.name.trim() : `${fName} ${lName}`.trim(),
+        phone: params.phone.trim(),
+        profileCompleted: true,
+      });
+      const createdAddr = await userService.addAddress(primaryAddr);
+      setDbAddresses([createdAddr]);
+    } catch (e) {
+      console.warn('Backend completeProfile sync warning:', e);
+    }
   };
 
   const addAddress = async (newAddress: Address) => {
+    try {
+      const created = await userService.addAddress(newAddress);
+      setDbAddresses((prev) => [created, ...prev]);
+    } catch (e) {
+      console.warn('Backend addAddress error, saving locally:', e);
+      setDbAddresses((prev) => [newAddress, ...prev]);
+    }
+
     const updatedAddresses = [...addresses, newAddress];
     await updateProfile({ addresses: updatedAddresses });
   };
 
   const setDefaultAddress = async (addrId: string) => {
+    try {
+      await userService.setDefaultAddress(addrId);
+      setDbAddresses((prev) =>
+        prev.map((a) => ({ ...a, isDefault: a.id === addrId }))
+      );
+    } catch (e) {
+      console.warn('Backend setDefaultAddress error:', e);
+    }
+
     const updatedAddresses = addresses.map((a) => ({
       ...a,
       isDefault: a.id === addrId,
@@ -241,6 +325,13 @@ export function useUserProfile(): UseUserProfileReturn {
   };
 
   const removeAddress = async (addrId: string) => {
+    try {
+      await userService.deleteAddress(addrId);
+      setDbAddresses((prev) => prev.filter((a) => a.id !== addrId));
+    } catch (e) {
+      console.warn('Backend removeAddress error:', e);
+    }
+
     const updatedAddresses = addresses.filter((a) => a.id !== addrId);
     await updateProfile({ addresses: updatedAddresses });
   };
@@ -284,6 +375,7 @@ export function useUserProfile(): UseUserProfileReturn {
     isProfileCompleted: profileCompleted,
     memberSince,
     profile,
+    refreshProfile: fetchBackendData,
     updateProfile,
     completeProfile,
     addAddress,

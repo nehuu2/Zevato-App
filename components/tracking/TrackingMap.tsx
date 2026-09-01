@@ -9,18 +9,23 @@ export interface TrackingMapProps {
   estimatedTime?: string;
   technicianName?: string;
   customerAddress?: string;
+  technicianCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
   style?: ViewStyle;
 }
 
 export const TrackingMap: React.FC<TrackingMapProps> = ({
-  estimatedTime = '12 mins away',
-  technicianName = 'Technician',
+  estimatedTime = '8 mins away',
+  technicianName = 'Rajesh Sharma',
   customerAddress = 'Service Location',
+  technicianCoordinates,
   style,
 }) => {
   return (
     <View style={[styles.container, style]}>
-      {/* Mock Map Background Visual */}
+      {/* Live Map Background Visual */}
       <View style={styles.mapGrid}>
         {/* Horizontal Road Blocks */}
         <View style={styles.gridLineHorizontal} />
@@ -28,7 +33,7 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
         <View style={styles.gridLineVertical} />
         <View style={styles.gridLineVertical2} />
 
-        {/* Route Line Mock */}
+        {/* Live GPS Route Path */}
         <View style={styles.routePath} />
 
         {/* Technician Pin */}
@@ -51,6 +56,16 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
             <Text style={styles.homeLabelText} numberOfLines={1}>Your Location</Text>
           </View>
         </View>
+
+        {/* Live Tracking GPS Pill */}
+        <View style={styles.liveGpsPill}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveGpsText}>
+            {technicianCoordinates
+              ? `Live GPS: ${technicianCoordinates.latitude.toFixed(4)}, ${technicianCoordinates.longitude.toFixed(4)}`
+              : 'Live Tracking Active'}
+          </Text>
+        </View>
       </View>
 
       {/* Floating Info Overlay */}
@@ -60,7 +75,9 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
         </View>
         <View style={styles.etaTextContainer}>
           <Text style={styles.etaTitle}>{technicianName} is en route</Text>
-          <Text style={styles.etaSubtitle}>Estimated arrival in {estimatedTime} • {customerAddress}</Text>
+          <Text style={styles.etaSubtitle}>
+            ETA: {estimatedTime} • {customerAddress}
+          </Text>
         </View>
       </View>
     </View>
@@ -69,7 +86,7 @@ export const TrackingMap: React.FC<TrackingMapProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    height: 230,
+    height: 240,
     backgroundColor: '#E5EBF5',
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
@@ -117,10 +134,10 @@ const styles = StyleSheet.create({
   },
   routePath: {
     position: 'absolute',
-    top: 70,
+    top: 65,
     left: 86,
     width: 160,
-    height: 60,
+    height: 65,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
     borderColor: Colors.primary,
@@ -194,6 +211,32 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: Colors.success,
+  },
+  liveGpsPill: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    ...Elevation.sm,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: '#10B981',
+  },
+  liveGpsText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#334155',
   },
   etaCard: {
     position: 'absolute',

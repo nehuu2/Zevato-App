@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,45 +8,81 @@ import { BorderRadius, Elevation, Spacing } from '../../constants/spacing';
 import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
-import { bookingStore } from '../../store/bookingStore';
-import { mockBookings } from '../../data/bookings';
+import EmptyState from '../../components/common/EmptyState';
+import { bookingService } from '../../services/bookings';
 import { formatCurrency } from '../../utils/formatCurrency';
-import { Booking } from '../../types/booking';
-
-import { useUserProfile } from '../../hooks/useUserProfile';
+import { InvoiceData } from '../../types/booking';
 
 export default function InvoiceScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { fullName, defaultAddress } = useUserProfile();
 
-  const booking: Booking = bookingStore.getBookingById(id || '') || mockBookings[0];
-  const customerName = fullName || 'Valued Customer';
-  const customerAddress = booking.address
-    ? `${booking.address.street}, ${booking.address.city}, ${booking.address.state} - ${booking.address.pincode}`
-    : defaultAddress
-    ? `${defaultAddress.street}, ${defaultAddress.city}, ${defaultAddress.state} - ${defaultAddress.pincode}`
-    : 'Customer Address';
+  const [invoice, setInvoice] = useState<InvoiceData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalAmount = booking.totalAmount || 499;
-  const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
-  const totalTax = Math.round((totalAmount - taxableAmount) * 100) / 100;
-  const cgst = Math.round((totalTax / 2) * 100) / 100;
-  const sgst = Math.round((totalTax / 2) * 100) / 100;
+  const fetchInvoice = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await bookingService.getBookingInvoice(id);
+      setInvoice(data);
+    } catch (err: any) {
+      console.warn(`Failed to fetch invoice for booking #${id}:`, err);
+      setError(err.message || 'Unable to retrieve tax invoice from server.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchInvoice();
+  }, [fetchInvoice]);
 
   const handleDownload = () => {
+    if (!invoice) return;
     Alert.alert(
       'Invoice Downloaded',
-      `Tax Invoice #${booking.id} has been saved to your local downloads folder.`,
+      `Tax Invoice #${invoice.invoiceNumber} has been saved to your local downloads folder.`,
       [{ text: 'OK' }]
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <Header title="Tax Invoice" showBack onBackPress={() => router.back()} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Generating official GST invoice...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!invoice || error) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <Header title="Tax Invoice" showBack onBackPress={() => router.back()} />
+        <View style={styles.emptyContainer}>
+          <EmptyState
+            icon="receipt-outline"
+            title="Invoice Not Found"
+            description={error || `We couldn't locate the invoice for booking #${id || 'unknown'}.`}
+            actionTitle="Back to Bookings"
+            onActionPress={() => router.back()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header
         title="Tax Invoice"
-        subtitle={`Invoice for #${booking.id}`}
+        subtitle={`Invoice #${invoice.invoiceNumber}`}
         showBack
         onBackPress={() => router.back()}
       />
@@ -60,9 +96,9 @@ export default function InvoiceScreen() {
               <Text style={styles.hsnText}>SAC Code: 998719 (Maintenance & Repair)</Text>
             </View>
             <View style={styles.invoiceMeta}>
-              <Text style={styles.invoiceNumber}>INV-{booking.id.replace('BK-', '').replace('ZEV-', '')}</Text>
+              <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
               <Text style={styles.invoiceDate}>
-                Date: {new Date(booking.createdAt).toLocaleDateString()}
+                Date: {new Date(invoice.issuedAt).toLocaleDateString()}
               </Text>
             </View>
           </View>
@@ -71,8 +107,8 @@ export default function InvoiceScreen() {
 
           <View style={styles.billToSection}>
             <Text style={styles.sectionLabel}>Billed To:</Text>
-            <Text style={styles.customerName}>{customerName}</Text>
-            <Text style={styles.addressText}>{customerAddress}</Text>
+            <Text style={styles.customerName}>{invoice.customerName || 'Valued Customer'}</Text>
+            <Text style={styles.addressText}>{invoice.customerAddress || 'Customer Address'}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -81,44 +117,44 @@ export default function InvoiceScreen() {
           <Text style={styles.sectionLabel}>Service Items:</Text>
           <View style={styles.itemRow}>
             <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-              <Text style={styles.itemName}>{booking.selectedOption.title}</Text>
+              <Text style={styles.itemName}>{invoice.serviceName || 'Appliance Service'}</Text>
               <Text style={styles.itemDesc}>
-                {booking.categoryName} {booking.brandName ? `• ${booking.brandName}` : ''}
+                {invoice.categoryName} {invoice.brandName ? `• ${invoice.brandName}` : ''}
               </Text>
             </View>
-            <Text style={styles.itemPrice}>{formatCurrency(totalAmount)}</Text>
+            <Text style={styles.itemPrice}>{formatCurrency(invoice.subtotal)}</Text>
           </View>
 
           <View style={styles.itemRow}>
             <View style={{ flex: 1, paddingRight: Spacing.sm }}>
               <Text style={styles.itemName}>Care Plus Visiting & Inspection Fee</Text>
-              <Text style={styles.itemDesc}>Waived for Zevota Member</Text>
+              <Text style={styles.itemDesc}>Waived for Zevota Customer</Text>
             </View>
             <Text style={[styles.itemPrice, styles.discountText]}>FREE</Text>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Tax Breakdown */}
+          {/* Authoritative Tax Breakdown */}
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>Taxable Value</Text>
-            <Text style={styles.calcVal}>₹{taxableAmount.toFixed(2)}</Text>
+            <Text style={styles.calcVal}>₹{invoice.taxableAmount.toFixed(2)}</Text>
           </View>
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>CGST (9.0%)</Text>
-            <Text style={styles.calcVal}>₹{cgst.toFixed(2)}</Text>
+            <Text style={styles.calcVal}>₹{invoice.cgst.toFixed(2)}</Text>
           </View>
           <View style={styles.calcRow}>
             <Text style={styles.calcLabel}>SGST (9.0%)</Text>
-            <Text style={styles.calcVal}>₹{sgst.toFixed(2)}</Text>
+            <Text style={styles.calcVal}>₹{invoice.sgst.toFixed(2)}</Text>
           </View>
 
           <View style={[styles.calcRow, styles.totalCalcRow]}>
             <View>
-              <Text style={styles.totalLabel}>Total Paid ({booking.paymentMethod})</Text>
+              <Text style={styles.totalLabel}>Total Paid ({invoice.paymentMethod})</Text>
               <Text style={styles.inclusiveText}>Inclusive of all GST taxes</Text>
             </View>
-            <Text style={styles.totalVal}>{formatCurrency(totalAmount)}</Text>
+            <Text style={styles.totalVal}>{formatCurrency(invoice.total)}</Text>
           </View>
         </View>
 
@@ -148,6 +184,22 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  emptyContainer: {
+    flex: 1,
+    padding: Spacing.xl,
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   invoicePaper: {
     backgroundColor: Colors.white,

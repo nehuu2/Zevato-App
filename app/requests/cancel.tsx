@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +10,8 @@ import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { bookingStore } from '../../store/bookingStore';
+import { bookingService } from '../../services/bookings';
+import { Booking } from '../../types/booking';
 
 const reasons = [
   'Technician arrival delayed',
@@ -24,32 +26,53 @@ export default function CancelRequestScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const booking = bookingStore.getBookingById(id || '');
+  const [booking, setBooking] = useState<Booking | null>(() =>
+    id ? bookingStore.getBookingById(id) || null : null
+  );
 
   const [selectedReason, setSelectedReason] = useState(reasons[0]);
   const [customFeedback, setCustomFeedback] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleConfirmCancel = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const reasonToSave = selectedReason === 'Other reason' && customFeedback ? customFeedback : selectedReason;
-      if (booking) {
-        bookingStore.cancelBooking(booking.id, reasonToSave);
-      }
+  useEffect(() => {
+    if (id && !booking) {
+      bookingService
+        .getBookingById(id)
+        .then((b) => setBooking(b))
+        .catch((e) => console.warn('Could not fetch booking details for cancel:', e));
+    }
+  }, [id, booking]);
 
+  const handleConfirmCancel = async () => {
+    setLoading(true);
+    const reasonToSave =
+      selectedReason === 'Other reason' && customFeedback.trim()
+        ? customFeedback.trim()
+        : selectedReason;
+
+    try {
+      if (id) {
+        await bookingService.cancelBooking(id, reasonToSave);
+        bookingStore.cancelBooking(id, reasonToSave);
+      }
       setLoading(false);
-      Alert.alert('Booking Cancelled', 'Your service appointment has been successfully cancelled.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/requests') },
-      ]);
-    }, 400);
+      Alert.alert(
+        'Booking Cancelled',
+        'Your service appointment has been successfully cancelled.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/requests') }]
+      );
+    } catch (err: any) {
+      setLoading(false);
+      console.warn('Cancellation failed on backend:', err);
+      Alert.alert('Cancellation Error', err.message || 'Failed to cancel booking. Please try again.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header
         title="Cancel Booking"
-        subtitle={booking ? `#${booking.id}` : undefined}
+        subtitle={id ? `#${id}` : undefined}
         showBack
         onBackPress={() => router.back()}
       />
@@ -203,7 +226,6 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.text,
   },
   reasonTextSelected: {
     color: Colors.danger,

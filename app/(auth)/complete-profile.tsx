@@ -195,7 +195,7 @@ export default function CompleteProfileScreen() {
 
             <Input
               label="Full Name *"
-              placeholder="e.g. John Doe"
+              placeholder="e.g. your full name"
               value={name}
               onChangeText={(val) => {
                 setName(val);

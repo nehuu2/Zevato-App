@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,62 +9,108 @@ import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import EmptyState from '../../components/common/EmptyState';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { bookingService } from '../../services/bookings';
 import { bookingStore } from '../../store/bookingStore';
+import { Booking } from '../../types/booking';
 
 export default function InvoicesScreen() {
   const router = useRouter();
-  const bookings = bookingStore.getConfirmedBookings();
-  const paidBookings = bookings.filter((b) => b.paymentStatus === 'paid' || b.status === 'completed');
+  const [bookings, setBookings] = useState<Booking[]>(() =>
+    bookingStore.getConfirmedBookings().filter((b) => b.paymentStatus === 'paid' || b.status === 'completed')
+  );
+  const [loading, setLoading] = useState<boolean>(bookings.length === 0);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const fetchInvoices = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else if (bookings.length === 0) setLoading(true);
+
+    try {
+      const list = await bookingService.getAllBookings();
+      const paid = list.filter((b) => b.paymentStatus === 'paid' || b.status === 'completed');
+      setBookings(paid);
+    } catch (e) {
+      console.warn('Failed to load invoices from server:', e);
+      // Fallback to store
+      setBookings(
+        bookingStore.getConfirmedBookings().filter((b) => b.paymentStatus === 'paid' || b.status === 'completed')
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [bookings.length]);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Invoices & Bills" showBack onBackPress={() => router.back()} />
       <View style={styles.container}>
-        <FlatList
-          data={paidBookings}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() =>
-                router.push({
-                  pathname: '/bookings/invoice',
-                  params: { id: item.id },
-                })
-              }
-              style={styles.card}
-            >
-              <View style={styles.left}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
+        {loading && !refreshing ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Loading your invoices...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={bookings}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => fetchInvoices(true)}
+                colors={[Colors.primary]}
+                tintColor={Colors.primary}
+              />
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() =>
+                  router.push({
+                    pathname: '/bookings/invoice',
+                    params: { id: item.id },
+                  })
+                }
+                style={styles.card}
+              >
+                <View style={styles.left}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="receipt-outline" size={20} color={Colors.primary} />
+                  </View>
+                  <View>
+                    <Text style={styles.invNumber}>
+                      INV-{item.id.replace('BK-', '').replace('ZEV-', '')}
+                    </Text>
+                    <Text style={styles.serviceName}>{item.serviceName}</Text>
+                    <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.invNumber}>INV-{item.id.replace('BK-', '').replace('ZEV-', '')}</Text>
-                  <Text style={styles.serviceName}>{item.serviceName}</Text>
-                  <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-                </View>
-              </View>
 
-              <View style={styles.right}>
-                <Text style={styles.amount}>{formatCurrency(item.totalAmount)}</Text>
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidText}>Paid</Text>
+                <View style={styles.right}>
+                  <Text style={styles.amount}>{formatCurrency(item.totalAmount)}</Text>
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidText}>Paid</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              icon="receipt-outline"
-              title="No Invoices Yet"
-              description="Your GST tax invoices and receipts will appear here after booking services."
-              actionTitle="Browse Services"
-              onActionPress={() => router.push('/(tabs)/services')}
-            />
-          }
-          contentContainerStyle={styles.listContent}
-        />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                icon="receipt-outline"
+                title="No Invoices Yet"
+                description="Your GST tax invoices and receipts will appear here after booking services."
+                actionTitle="Browse Services"
+                onActionPress={() => router.push('/(tabs)/services')}
+              />
+            }
+            contentContainerStyle={styles.listContent}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -79,6 +125,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.md,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   card: {
     flexDirection: 'row',

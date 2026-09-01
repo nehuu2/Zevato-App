@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,51 +17,73 @@ export default function ContactSupportScreen() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const handleCall = () => {
+    Linking.openURL(`tel:${AppConfig.supportPhone}`).catch((err) => {
+      console.warn('Call intent error:', err);
+      Alert.alert('Customer Care', `Reach us at ${AppConfig.supportPhone}`);
+    });
+  };
+
+  const handleEmail = () => {
+    Linking.openURL(`mailto:${AppConfig.supportEmail}?subject=Support Request - Zevota Care`).catch((err) => {
+      console.warn('Email intent error:', err);
+      Alert.alert('Email Support', `Write to us at ${AppConfig.supportEmail}`);
+    });
+  };
+
   const handleSubmit = () => {
-    if (!subject || !message) {
-      Alert.alert('Incomplete', 'Please fill in both subject and message.');
+    if (!subject.trim() || !message.trim()) {
+      Alert.alert('Incomplete', 'Please fill in both subject and message before submitting.');
       return;
     }
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      Alert.alert('Message Sent', 'Our support team will contact you within 15 minutes.', [
+      Alert.alert('Message Sent', 'Your ticket has been logged. Our support specialist will reach out within 15 minutes.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    }, 600);
+    }, 500);
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header title="Contact Support" showBack onBackPress={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Quick Contact Options */}
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Quick Contact Interactive Tiles */}
         <View style={styles.quickContactsRow}>
-          <View style={styles.contactTile}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleCall}
+            style={styles.contactTile}
+          >
             <Ionicons name="call" size={24} color={Colors.primary} />
             <Text style={styles.tileTitle}>Call Us</Text>
             <Text style={styles.tileSub}>{AppConfig.supportPhone}</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.contactTile}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleEmail}
+            style={styles.contactTile}
+          >
             <Ionicons name="mail" size={24} color={Colors.primary} />
             <Text style={styles.tileTitle}>Email Us</Text>
             <Text style={styles.tileSub}>{AppConfig.supportEmail}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.formTitle}>Send a Support Ticket</Text>
+        <Text style={styles.formTitle}>Submit a Support Ticket</Text>
 
         <Input
           label="Subject / Booking ID"
-          placeholder="e.g. Issue with BK-89021"
+          placeholder="e.g. Inquiry regarding booking BK-89021"
           value={subject}
           onChangeText={setSubject}
         />
 
         <Input
-          label="Message / Query"
-          placeholder="Describe how we can help you today..."
+          label="Message / Query Details"
+          placeholder="Describe your question or issue in detail..."
           multiline
           numberOfLines={4}
           value={message}

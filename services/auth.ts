@@ -1,29 +1,24 @@
-import { apiClient } from './api';
+import { userService } from './users';
 import { UserProfile } from '../types/user';
 
+/**
+ * Authentication service interface.
+ * Clerk is the primary source of truth for identity, sign-in, and credentials.
+ * Application profile data is synchronized with the Zevota backend database.
+ */
 export const authService = {
-  loginWithPhone: async (phone: string, otp: string): Promise<UserProfile> => {
-    const mockUser: UserProfile = {
-      id: 'usr_' + Math.random().toString(36).substring(2, 9),
-      name: 'User',
-      email: 'user@example.com',
-      phone,
-      addresses: [],
-      paymentMethods: [],
-    };
-    return apiClient.post('/auth/login', { phone, otp }, mockUser);
+  /**
+   * Fetch current authenticated user profile from backend database
+   */
+  getCurrentUser: async (): Promise<UserProfile> => {
+    return userService.getProfile();
   },
 
-  signUp: async (name: string, email: string, phone: string): Promise<UserProfile> => {
-    const mockUser: UserProfile = {
-      id: 'usr_' + Math.random().toString(36).substring(2, 9),
-      name,
-      email,
-      phone,
-      addresses: [],
-      paymentMethods: [],
-    };
-    return apiClient.post('/auth/signup', { name, email, phone }, mockUser);
+  /**
+   * Synchronize profile updates to backend database
+   */
+  syncProfile: async (updates: Partial<UserProfile>): Promise<UserProfile> => {
+    return userService.updateProfile(updates);
   },
 };
 

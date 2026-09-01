@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import EmptyState from '../../components/common/EmptyState';
 import BookingProgress from '../../components/tracking/BookingProgress';
 import TechnicianCard from '../../components/tracking/TechnicianCard';
 import { bookingStore } from '../../store/bookingStore';
+import { bookingService } from '../../services/bookings';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { Booking } from '../../types/booking';
 
@@ -22,15 +23,58 @@ export default function BookingDetailScreen() {
   const [booking, setBooking] = useState<Booking | undefined>(() =>
     bookingStore.getBookingById(id || '')
   );
+  const [loading, setLoading] = useState<boolean>(!booking);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBooking = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await bookingService.getBookingById(id);
+      setBooking(data);
+      bookingStore.addConfirmedBooking(data);
+    } catch (err: any) {
+      console.warn(`Failed to fetch booking #${id}:`, err);
+      // If cached in store, keep it
+      const cached = bookingStore.getBookingById(id);
+      if (cached) {
+        setBooking(cached);
+      } else {
+        setError(err.message || `We couldn't locate booking #${id}.`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchBooking();
+  }, [fetchBooking]);
 
   useEffect(() => {
     const unsub = bookingStore.subscribeBookings(() => {
-      setBooking(bookingStore.getBookingById(id || ''));
+      const updated = bookingStore.getBookingById(id || '');
+      if (updated) {
+        setBooking(updated);
+      }
     });
     return unsub;
   }, [id]);
 
-  if (!booking) {
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <Header title="Booking Details" showBack onBackPress={() => router.back()} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Fetching booking details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!booking || error) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <Header title="Booking Details" showBack onBackPress={() => router.back()} />
@@ -38,7 +82,7 @@ export default function BookingDetailScreen() {
           <EmptyState
             icon="alert-circle-outline"
             title="Booking Not Found"
-            description={`We couldn't locate booking #${id || 'unknown'}. It may have been archived.`}
+            description={error || `We couldn't locate booking #${id || 'unknown'}. It may belong to another account or have been archived.`}
             actionTitle="View My Bookings"
             onActionPress={() => router.replace('/(tabs)/requests')}
           />
@@ -82,7 +126,9 @@ export default function BookingDetailScreen() {
         <View style={styles.statusBanner}>
           <View>
             <Text style={styles.statusBannerTitle}>Booking Status</Text>
-            <Text style={styles.statusBannerDate}>Created on {new Date(booking.createdAt).toLocaleDateString()}</Text>
+            <Text style={styles.statusBannerDate}>
+              Created on {new Date(booking.createdAt).toLocaleDateString()}
+            </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusBadge.bg }]}>
             <Text style={[styles.statusBadgeText, { color: statusBadge.text }]}>
@@ -114,7 +160,7 @@ export default function BookingDetailScreen() {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Package</Text>
-            <Text style={styles.val} numberOfLines={1}>{booking.selectedOption.title}</Text>
+            <Text style={styles.val} numberOfLines={1}>{booking.selectedOption?.title || booking.serviceName}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Scheduled Slot</Text>
@@ -130,6 +176,12 @@ export default function BookingDetailScreen() {
             <Text style={styles.label}>Payment Method</Text>
             <Text style={styles.val}>{booking.paymentMethod}</Text>
           </View>
+          {booking.cancellationReason ? (
+            <View style={styles.detailRow}>
+              <Text style={[styles.label, { color: Colors.danger }]}>Cancellation Reason</Text>
+              <Text style={[styles.val, { color: Colors.danger }]}>{booking.cancellationReason}</Text>
+            </View>
+          ) : null}
           <View style={styles.divider} />
           <View style={styles.detailRow}>
             <Text style={styles.totalLabel}>Total Amount</Text>
@@ -217,6 +269,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   emptyContainer: {
     flex: 1,

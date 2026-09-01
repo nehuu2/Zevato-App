@@ -1,20 +1,54 @@
 import { apiClient } from './api';
 import { UserProfile, Address } from '../types/user';
-import { userStore } from '../store/userStore';
 
 export const userService = {
+  /**
+   * Get profile of authenticated user from database
+   */
   getProfile: async (): Promise<UserProfile> => {
-    return apiClient.get('/user/profile', userStore.getState());
+    return apiClient.get<UserProfile>('/me');
   },
 
+  /**
+   * Update authenticated user profile in database
+   */
   updateProfile: async (updates: Partial<UserProfile>): Promise<UserProfile> => {
-    userStore.updateProfile(updates);
-    return apiClient.post('/user/profile', updates, userStore.getState());
+    return apiClient.patch<UserProfile>('/me', updates);
   },
 
-  addAddress: async (address: Address): Promise<Address[]> => {
-    userStore.addAddress(address);
-    return apiClient.post('/user/addresses', address, userStore.getState().addresses);
+  /**
+   * List all saved addresses from database
+   */
+  getAddresses: async (): Promise<Address[]> => {
+    return apiClient.get<Address[]>('/addresses');
+  },
+
+  /**
+   * Save a new address in database
+   */
+  addAddress: async (address: Partial<Address>): Promise<Address> => {
+    return apiClient.post<Address>('/addresses', address);
+  },
+
+  /**
+   * Update an existing address in database
+   */
+  updateAddress: async (id: string, address: Partial<Address>): Promise<Address> => {
+    return apiClient.patch<Address>(`/addresses/${encodeURIComponent(id)}`, address);
+  },
+
+  /**
+   * Delete an address in database
+   */
+  deleteAddress: async (id: string): Promise<{ success: boolean }> => {
+    return apiClient.delete<{ success: boolean }>(`/addresses/${encodeURIComponent(id)}`);
+  },
+
+  /**
+   * Set address as default in database
+   */
+  setDefaultAddress: async (id: string): Promise<Address> => {
+    return apiClient.patch<Address>(`/addresses/${encodeURIComponent(id)}/default`, {});
   },
 };
 

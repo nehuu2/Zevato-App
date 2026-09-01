@@ -1,7 +1,6 @@
 import { Category, Brand, Product, ServiceOption } from '../types/service';
 import { Address } from '../types/user';
 import { Booking, BookingDraft, BookingStatus, ServiceReportData } from '../types/booking';
-import { mockBookings } from '../data/bookings';
 
 export { BookingDraft };
 
@@ -19,7 +18,7 @@ const initialDraft: BookingDraft = {
 };
 
 let currentBookingDraft: BookingDraft = { ...initialDraft };
-let confirmedBookings: Booking[] = [...mockBookings];
+let confirmedBookings: Booking[] = [];
 let lastConfirmedBooking: Booking | null = null;
 
 const draftListeners = new Set<(draft: BookingDraft) => void>();
@@ -90,68 +89,15 @@ export const bookingStore = {
     notifyDraft();
   },
 
-  confirmBooking: (): Booking => {
-    const draft = currentBookingDraft;
-    const bookingId = 'ZEV-2026-' + Math.floor(10000 + Math.random() * 90000);
-
-    const fallbackOption: ServiceOption = {
-      id: 'opt-std',
-      title: 'Standard Appliance Service',
-      description: 'Comprehensive inspection and diagnostic checkup',
-      duration: '45 - 60 mins',
-      price: 399,
-      features: ['Standard inspection', '30-day warranty'],
-      included: ['Diagnosis', 'Basic labor'],
-      excluded: ['Parts cost'],
-      warrantyDays: 30,
-    };
-
-    const fallbackAddress: Address = {
-      id: 'addr-default',
-      label: 'Home',
-      street: 'Customer Delivery Address',
-      city: '',
-      state: '',
-      pincode: '',
-      isDefault: true,
-    };
-
-    const newBooking: Booking = {
-      id: bookingId,
-      serviceId: draft.service?.id || 'srv-gen',
-      serviceName: draft.service?.title || 'Appliance Repair & Service',
-      categoryName: draft.category?.name || 'Home Appliance',
-      brandName: draft.brand?.name || undefined,
-      productName: draft.product?.name || undefined,
-      selectedOption: draft.service || fallbackOption,
-      date: draft.date || 'Today',
-      timeSlot: draft.timeSlot || '02:00 PM - 04:00 PM',
-      address: draft.address || fallbackAddress,
-      paymentMethod: draft.paymentMethod || 'UPI Instant Pay',
-      paymentStatus: draft.paymentMethod?.includes('Completion') || draft.paymentMethod?.includes('Cash') ? 'cod' : 'paid',
-      totalAmount: draft.service?.price || 399,
-      discountAmount: draft.discountAmount || 0,
-      taxAmount: 0,
-      status: 'confirmed',
-      createdAt: new Date().toISOString(),
-      technician: {
-        id: 'tech-101',
-        name: 'Rajesh Sharma',
-        phone: '+91 98765 12345',
-        rating: 4.9,
-        completedJobs: 420,
-        experienceYears: 6,
-        specialization: 'Appliance Specialist',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      },
-      notes: draft.notes,
-    };
-
-    confirmedBookings = [newBooking, ...confirmedBookings];
-    lastConfirmedBooking = newBooking;
+  setConfirmedBookings: (bookings: Booking[]) => {
+    confirmedBookings = bookings;
     notifyBookings();
+  },
 
-    return newBooking;
+  addConfirmedBooking: (booking: Booking) => {
+    confirmedBookings = [booking, ...confirmedBookings.filter((b) => b.id !== booking.id)];
+    lastConfirmedBooking = booking;
+    notifyBookings();
   },
 
   updateBookingStatus: (id: string, status: BookingStatus): Booking | undefined => {
@@ -215,6 +161,10 @@ export const bookingStore = {
 
   getLastConfirmedBooking: (): Booking | null => {
     return lastConfirmedBooking;
+  },
+
+  setLastConfirmedBooking: (booking: Booking | null) => {
+    lastConfirmedBooking = booking;
   },
 
   getConfirmedBookings: (): Booking[] => {

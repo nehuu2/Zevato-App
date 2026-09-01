@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,18 +13,41 @@ import ServiceGrid from '../../components/home/ServiceGrid';
 import RecentRequestCard from '../../components/home/RecentRequestCard';
 import ProtectionCard from '../../components/home/ProtectionCard';
 import { categories } from '../../data/categories';
-import { mockRequests } from '../../data/requests';
 import { Category } from '../../types/service';
 import { bookingStore } from '../../store/bookingStore';
-
+import { bookingService } from '../../services/bookings';
+import { Booking } from '../../types/booking';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isLoaded, isSignedIn, firstName, fullName, displayAddress } = useUserProfile();
+  const [recentBookings, setRecentBookings] = useState<Booking[]>(() =>
+    bookingStore.getConfirmedBookings().slice(0, 2)
+  );
+
   const displayName = isLoaded
     ? firstName || fullName || (isSignedIn ? 'User' : 'Guest')
     : '...';
+
+  useEffect(() => {
+    if (isSignedIn) {
+      bookingService
+        .getAllBookings()
+        .then((list) => {
+          setRecentBookings(list.slice(0, 2));
+          bookingStore.setConfirmedBookings(list);
+        })
+        .catch((e) => console.warn('Home fetch bookings warning:', e));
+    }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    const unsub = bookingStore.subscribeBookings((list) => {
+      setRecentBookings(list.slice(0, 2));
+    });
+    return unsub;
+  }, []);
 
   const handleSelectCategory = (category: Category) => {
     bookingStore.setCategory(category);
@@ -104,21 +127,48 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Recent Service Requests */}
-        <SectionHeader
-          title="Recent Requests"
-          subtitle="Track ongoing and past repair jobs"
-          actionText="See All"
-          showChevron
-          onActionPress={() => router.push('/(tabs)/requests')}
-        />
-        {mockRequests.slice(0, 2).map((req) => (
-          <RecentRequestCard
-            key={req.id}
-            request={req}
-            onPress={() => router.push(`/requests/${req.id}`)}
-          />
-        ))}
+        {/* Recent Service Bookings / Requests */}
+        {recentBookings.length > 0 && (
+          <>
+            <SectionHeader
+              title="Recent Bookings"
+              subtitle="Track ongoing and past repair jobs"
+              actionText="See All"
+              showChevron
+              onActionPress={() => router.push('/(tabs)/requests')}
+            />
+            {recentBookings.map((b) => (
+              <TouchableOpacity
+                key={b.id}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: '/bookings/[id]',
+                    params: { id: b.id },
+                  })
+                }
+                style={styles.recentBookingCard}
+              >
+                <View style={styles.recentBookingLeft}>
+                  <View style={styles.recentIconBox}>
+                    <Ionicons name="construct-outline" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.recentServiceTitle} numberOfLines={1}>
+                      {b.serviceName}
+                    </Text>
+                    <Text style={styles.recentMeta}>
+                      {b.categoryName} • {b.date} ({b.timeSlot})
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.recentStatusBadge}>
+                  <Text style={styles.recentStatusText}>{b.status.replace('_', ' ').toUpperCase()}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
 
         {/* 360 Shield Card */}
         <ProtectionCard onLearnMore={() => router.push('/profile/protection')} />
@@ -221,5 +271,53 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs + 1,
     fontWeight: '700',
     color: Colors.white,
+  },
+  recentBookingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Elevation.sm,
+  },
+  recentBookingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  recentIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentServiceTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  recentMeta: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  recentStatusBadge: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    marginLeft: Spacing.xs,
+  },
+  recentStatusText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: Colors.primaryDark,
   },
 });

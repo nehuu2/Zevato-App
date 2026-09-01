@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,27 +9,74 @@ import Typography from '../../constants/typography';
 import Header from '../../components/common/Header';
 import Button from '../../components/common/Button';
 import ServiceReport from '../../components/tracking/ServiceReport';
+import { bookingService } from '../../services/bookings';
 import { bookingStore } from '../../store/bookingStore';
-import { mockBookings } from '../../data/bookings';
 import { Booking } from '../../types/booking';
 
 export default function BookingCompletedScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [rating, setRating] = useState(5);
+  const [booking, setBooking] = useState<Booking | null>(() => (id ? bookingStore.getBookingById(id) || null : null));
+  const [loading, setLoading] = useState<boolean>(!booking);
 
-  const booking: Booking = bookingStore.getBookingById(id || '') || mockBookings[0];
+  const fetchBooking = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const data = await bookingService.getBookingById(id);
+      setBooking(data);
+      if (data.serviceReport?.ratingGiven) {
+        setRating(data.serviceReport.ratingGiven);
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch completed booking #${id}:`, err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  const handleRating = (stars: number) => {
+  useEffect(() => {
+    fetchBooking();
+  }, [fetchBooking]);
+
+  const handleRating = async (stars: number) => {
     setRating(stars);
-    Alert.alert('Rating Submitted', `Thank you for rating ${booking.technician?.name || 'our technician'} ${stars} stars!`);
+    if (!id) return;
+    try {
+      await bookingService.submitServiceRating(id, stars);
+      Alert.alert(
+        'Rating Submitted',
+        `Thank you for rating ${booking?.technician?.name || 'our technician'} ${stars} stars!`
+      );
+    } catch (e) {
+      console.warn('Failed to submit rating to server:', e);
+      Alert.alert('Rating Submitted', `Thank you for rating ${stars} stars!`);
+    }
   };
+
+  if (loading && !booking) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <Header title="Service Completed" showBack onBackPress={() => router.back()} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading service report...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const serviceName = booking?.serviceName || 'Appliance Service';
+  const categoryName = booking?.categoryName || 'Appliance';
+  const brandName = booking?.brandName || '';
+  const technicianName = booking?.technician?.name || 'Assigned Specialist';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <Header
         title="Service Completed"
-        subtitle={`Booking #${booking.id}`}
+        subtitle={id ? `Booking #${id}` : undefined}
         showBack
         onBackPress={() => router.back()}
       />
@@ -41,7 +88,7 @@ export default function BookingCompletedScreen() {
           </View>
           <Text style={styles.title}>Service Successfully Completed!</Text>
           <Text style={styles.subtitle}>
-            Your {booking.serviceName} has been completed and verified with our 30-day rework warranty.
+            Your {serviceName} has been completed and verified with our 30-day rework warranty.
           </Text>
         </View>
 
@@ -49,7 +96,7 @@ export default function BookingCompletedScreen() {
         <View style={styles.rateCard}>
           <Text style={styles.rateTitle}>Rate Technician Performance</Text>
           <Text style={styles.rateSubtitle}>
-            How was your experience with {booking.technician?.name || 'our technician'}?
+            How was your experience with {technicianName}?
           </Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
@@ -70,9 +117,12 @@ export default function BookingCompletedScreen() {
 
         {/* Service Completion Report Card */}
         <ServiceReport
-          technicianNotes={booking.serviceReport?.technicianNotes || `Inspected ${booking.categoryName} (${booking.brandName || 'System'}). Deep cleaned coils & filters, inspected electrical connections, verified normal operating current.`}
-          partsReplaced={booking.serviceReport?.partsReplaced || ['Drain Pipe Seal Ring']}
-          warrantyUntil="30 Days from today"
+          technicianNotes={
+            booking?.serviceReport?.technicianNotes ||
+            `Inspected ${categoryName} (${brandName || 'System'}). Deep cleaned coils & filters, inspected electrical connections, verified normal operating current.`
+          }
+          partsReplaced={booking?.serviceReport?.partsReplaced || ['Drain Pipe Seal Ring']}
+          warrantyUntil={booking?.serviceReport?.warrantyUntil || '30 Days from today'}
           ratingGiven={rating}
         />
 
@@ -81,10 +131,12 @@ export default function BookingCompletedScreen() {
             title="View Tax Invoice"
             variant="outline"
             leftIcon={<Ionicons name="receipt-outline" size={18} color={Colors.primary} />}
-            onPress={() => router.push({
-              pathname: '/bookings/invoice',
-              params: { id: booking.id },
-            })}
+            onPress={() =>
+              router.push({
+                pathname: '/bookings/invoice',
+                params: { id: id || '' },
+              })
+            }
           />
           <Button
             title="Back to Home"
@@ -104,6 +156,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.base,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   heroBox: {
     alignItems: 'center',
